@@ -11,16 +11,12 @@ const signUpSchema = Joi.object({
     "any.required": "Email is required",
   }),
 
-  phone: Joi.string()
-    .pattern(/^[6-9]\d{9}$/)
-    .required()
-    .messages({
-      "string.pattern.base": "Invalid phone number",
-    }),
+  phone: Joi.number().integer().required().messages({
+    "string.pattern.base": "Invalid phone number",
+  }),
 
   password: Joi.string()
     .min(6)
-    .max(8)
     .required()
     .pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).+$/)
     .messages({
@@ -41,7 +37,6 @@ const loginSchema = Joi.object({
 
   password: Joi.string()
     .min(6)
-    .max(8)
     .required()
     .pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).+$/)
     .messages({
@@ -50,4 +45,49 @@ const loginSchema = Joi.object({
     }),
 });
 
-module.exports = { signUpSchema, loginSchema };
+const updateSchema = Joi.object({
+  action: Joi.string().valid("profile", "resetpassword").required(),
+
+  // for name, email, phone
+  name: Joi.when("action", {
+    is: "profile",
+    then: Joi.string().min(3).max(20).optional().trim().messages({
+      "string.empty": "Name is required",
+      "string.min": "Name must be atleast 3 character",
+    }),
+    otherwise: Joi.forbidden(),
+  }),
+
+  email: Joi.when("action", {
+    is: "profile",
+    then: Joi.string().email().optional().lowercase().messages({
+      "string.email": "Enter valid email",
+      "any.required": "Email is required",
+    }),
+    otherwise: Joi.forbidden(),
+  }),
+
+  phone: Joi.when("action", {
+    is: "profile",
+    then: Joi.number().integer().optional().messages({
+      "string.pattern.base": "Invalid phone number",
+    }),
+    otherwise: Joi.forbidden(),
+  }),
+
+  // for password reset
+  newPassword: Joi.when("action", {
+    is: "resetpassword",
+    then: Joi.string()
+      .min(6)
+      .required()
+      .pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).+$/)
+      .messages({
+        "string.pattern.base":
+          "Password must contain uppercase, lowercase and number",
+      }),
+    otherwise: Joi.forbidden(),
+  }),
+});
+
+module.exports = { signUpSchema, loginSchema, updateSchema };
