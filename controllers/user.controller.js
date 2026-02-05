@@ -8,6 +8,13 @@ const bcrypt = require("bcrypt");
 const generateToken = require("../helper/generateToken");
 const { Op } = require("sequelize");
 const logger = require("../helper/logger");
+const {
+  findSingleUser,
+  createUser,
+  findAllUser,
+  findUserByKey,
+  updateUser,
+} = require("../services/userServices");
 
 // register
 // POST /api/v1/users/register
@@ -30,8 +37,8 @@ const register = async (req, res) => {
     const { name, email, phone, password, photo } = value;
 
     // email and phone is unique
-    const existedUser = await db.User.findOne({ where: { email } });
-    const existedPhone = await db.User.findOne({ where: { phone } });
+    const existedUser = await findSingleUser({ where: { email } });
+    const existedPhone = await findSingleUser({ where: { phone } });
 
     // check for this email already exists or not
     if (existedUser) {
@@ -51,7 +58,7 @@ const register = async (req, res) => {
     const hashPassword = await bcrypt.hash(password, 10);
 
     // if not then create new user
-    const newUser = await db.User.create({
+    const newUser = await createUser({
       name,
       email,
       phone,
@@ -105,7 +112,7 @@ const login = async (req, res) => {
     const { email, password } = value;
 
     // find user by email
-    const user = await db.User.findOne({ where: { email } });
+    const user = await findSingleUser({ where: { email } });
 
     if (!user) {
       return res
@@ -166,7 +173,7 @@ const profile = async (req, res) => {
     logger.info(`${req.method} ${req.url}`);
 
     // grab data from database exclude password
-    const data = await db.User.findAll({
+    const data = await findAllUser({
       where: {
         id: id,
       },
@@ -195,7 +202,7 @@ const getAllUser = async (req, res) => {
   try {
     const id = req.id;
     logger.info(`${req.method} ${req.url}`);
-    const data = await db.User.findAll({
+    const data = await findAllUser({
       where: {
         id: {
           [Op.ne]: id,
@@ -237,7 +244,7 @@ const update = async (req, res) => {
     const { action, name, email, phone, newPassword } = value;
 
     // find user
-    const user = await db.User.findByPk(id);
+    const user = await findUserByKey(id);
 
     if (!user) {
       return res
@@ -254,7 +261,8 @@ const update = async (req, res) => {
         };
 
         // update it in database
-        await db.User.update(updatedData, {
+
+        await updateUser(updatedData, {
           where: { id: id },
         });
 
@@ -271,7 +279,7 @@ const update = async (req, res) => {
         };
 
         // update it in data base
-        await db.User.update(data, {
+        await updateUser(data, {
           where: { id: id },
         });
 
@@ -296,8 +304,7 @@ const deleteUser = async (req, res) => {
     logger.info(`${req.method} ${req.url}`);
 
     // find user exist or not
-    const user = await db.User.findOne({ where: { id: id, isDeleted: false } });
-    console.log(user);
+    const user = await findSingleUser({ where: { id: id, isDeleted: false } });
 
     if (!user) {
       return res
@@ -306,7 +313,7 @@ const deleteUser = async (req, res) => {
     }
 
     // update is isDeleted col
-    await db.User.update({ isDeleted: true }, { where: { id: id } });
+    await updateUser({ isDeleted: true }, { where: { id: id } });
 
     res.status(200).json({
       message: "User deleted successfully",
@@ -332,7 +339,7 @@ const uploadImage = async (req, res) => {
     }
 
     // check for user in DB
-    const user = await db.User.findAll({
+    const user = await findAllUser({
       where: { id: id },
       attributes: ["id", "photo"],
     });
@@ -345,7 +352,7 @@ const uploadImage = async (req, res) => {
 
     const imageUrl = `http://192.168.1.49:3000/profileimage/${req.file.filename}`;
 
-    await db.User.update({ photo: imageUrl }, { where: { id } });
+    await updateUser({ photo: imageUrl }, { where: { id } });
 
     res.status(200).json({
       message: user.photo
