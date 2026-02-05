@@ -1,4 +1,3 @@
-const db = require("../models/index");
 const {
   signUpSchema,
   loginSchema,
@@ -74,11 +73,14 @@ const register = async (req, res) => {
       photo: newUser.photo,
       is_online: newUser.is_online,
       last_seen: newUser.last_seen,
+      isDeleted: newUser.isDeleted,
+      isLogin: newUser.isLogin,
       createdAt: newUser.createdAt,
       updatedAt: newUser.updatedAt,
     };
 
     if (newUser) {
+      await updateUser({ isLogin: true }, { where: { email: email } });
       res.status(200).json({
         message: "User registered successfully",
         success: true,
@@ -138,6 +140,8 @@ const login = async (req, res) => {
 
     const token = generateToken(data);
 
+    await updateUser({ isLogin: true }, { where: { id: user.id } });
+
     const userDetail = {
       id: user.id,
       name: user.name,
@@ -145,6 +149,7 @@ const login = async (req, res) => {
       phone: user.phone,
       photo: user.photo,
       is_online: user.is_online,
+      isLogin: user.isLogin,
       last_seen: user.last_seen,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -304,7 +309,7 @@ const deleteUser = async (req, res) => {
     logger.info(`${req.method} ${req.url}`);
 
     // find user exist or not
-    const user = await findSingleUser({ where: { id: id, isDeleted: false } });
+    const user = await findUserByKey(id);
 
     if (!user) {
       return res
@@ -319,6 +324,7 @@ const deleteUser = async (req, res) => {
       message: "User deleted successfully",
       success: true,
     });
+    
   } catch (error) {
     console.log("Error in delete controller", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
@@ -367,6 +373,31 @@ const uploadImage = async (req, res) => {
   }
 };
 
+// GET /api/v1/users/logout
+const logout = async (req, res) => {
+  try {
+    // find user
+    const id = req.id;
+
+    const user = await findUserByKey(id);
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found ", success: false });
+    }
+
+    await updateUser({ isLogin: false }, { where: { id: id } });
+
+    res
+      .status(200)
+      .json({ message: "User logout successfully", success: true });
+  } catch (error) {
+    console.log("Error in delete controller", error.message);
+    res.status(500).json({ message: "SERVER ERROR", success: false });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -375,4 +406,5 @@ module.exports = {
   deleteUser,
   uploadImage,
   getAllUser,
+  logout,
 };

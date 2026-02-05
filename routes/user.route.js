@@ -7,6 +7,7 @@ const {
   uploadImage,
   getAllUser,
   update,
+  logout
 } = require("../controllers/user.controller");
 const auth = require("../middlewares/auth.middleware");
 const imageAuth = require("../middlewares/singleUpload.middleware");
@@ -22,6 +23,8 @@ router.get("/getall", auth, getAllUser);
 router.put("/update", auth, imageAuth, update);
 
 router.delete("/delete", auth, deleteUser);
+
+router.get('/logout', auth, logout);
 
 // photo upload
 router.post("/upload", auth, imageAuth, uploadImage);

@@ -43,6 +43,10 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: false,
       allowNull:false,
     },
+    isLogin: {
+      type: DataTypes.BOOLEAN,
+      default: false
+    },
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
