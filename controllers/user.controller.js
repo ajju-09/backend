@@ -39,18 +39,37 @@ const register = async (req, res) => {
     const existedUser = await findSingleUser({ where: { email } });
     const existedPhone = await findSingleUser({ where: { phone } });
 
-    // check for this email already exists or not
-    if (existedUser) {
-      return res
-        .status(401)
-        .json({ message: "This email is already registered", success: false });
-    }
+    const data = {
+      id: existedUser.id,
+      name: existedUser.name,
+      email: existedUser.email,
+      phone: existedUser.phone,
+      photo: existedUser.photo,
+      is_online: existedUser.is_online,
+      last_seen: existedUser.last_seen,
+      isDeleted: existedUser.isDeleted,
+      isLogin: existedUser.isLogin,
+      createdAt: existedUser.createdAt,
+      updatedAt: existedUser.updatedAt,
+    };
 
-    // check for phone number
-    if (existedPhone) {
+    // check for this email already exists or not
+    if (existedUser && existedPhone) {
+      await updateUser(
+        { isDeleted: false, isLogin: true },
+        { where: { email: email } },
+      );
+
+      const token = generateToken({ id: data.id, email: data.email });
+
       return res
-        .status(401)
-        .json({ message: "Phone number already existed", success: false });
+        .status(200)
+        .json({
+          message: "Welcome back",
+          success: true,
+          token: token,
+          data: data,
+        });
     }
 
     // hash password
@@ -63,6 +82,7 @@ const register = async (req, res) => {
       phone,
       password: hashPassword,
       photo: photo,
+      isLogin: true,
     });
 
     const userDetail = {
@@ -81,12 +101,19 @@ const register = async (req, res) => {
 
     if (newUser) {
       await updateUser({ isLogin: true }, { where: { email: email } });
+      const token = generateToken({
+        id: userDetail.id,
+        email: userDetail.email,
+      });
       res.status(200).json({
         message: "User registered successfully",
         success: true,
         data: userDetail,
+        token: token,
       });
     }
+
+    res.status(400).json({ message: "Something went wrong", success: false });
   } catch (error) {
     console.log("Error in register controller", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
@@ -116,7 +143,7 @@ const login = async (req, res) => {
     // find user by email
     const user = await findSingleUser({ where: { email } });
 
-    if (!user) {
+    if (!user || user.isDeleted) {
       return res
         .status(401)
         .json({ message: "User does not exists", success: false });
@@ -318,13 +345,15 @@ const deleteUser = async (req, res) => {
     }
 
     // update is isDeleted col
-    await updateUser({ isDeleted: true }, { where: { id: id } });
+    await updateUser(
+      { isDeleted: true, isLogin: false },
+      { where: { id: id } },
+    );
 
     res.status(200).json({
       message: "User deleted successfully",
       success: true,
     });
-    
   } catch (error) {
     console.log("Error in delete controller", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
@@ -398,11 +427,48 @@ const logout = async (req, res) => {
   }
 };
 
+// GET /api/v1/users/search
+const searchUsers = async (req, res) => {
+  try {
+    const { name, limit = "4" } = req.query;
+
+    if (!name) {
+      return res.status(400).json({ message: "Search text required" });
+    }
+
+    const user = await findAllUser({
+      where: {
+        name: {
+          [Op.like]: `%${name}%`,
+        },
+        isDeleted: false,
+      },
+      attributes: {
+        exclude: ["password"],
+      },
+
+      limit: Number(limit),
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Text doesn't match with any one", success: false });
+    }
+
+    res.status(200).json({ success: true, data: user, limit: limit });
+  } catch (error) {
+    console.log("Error in search controller", error.message);
+    res.status(500).json({ message: "SERVER ERROR", success: false });
+  }
+};
+
 module.exports = {
   register,
   login,
   profile,
   update,
+  searchUsers,
   deleteUser,
   uploadImage,
   getAllUser,
