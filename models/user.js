@@ -1,5 +1,4 @@
 "use strict";
-const Chat = require("./chat");
 
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define("User", {
@@ -68,6 +67,10 @@ module.exports = (sequelize, DataTypes) => {
     User.hasMany(models.Chat, {
       foreignKey: "user_two",
     });
+
+    User.hasMany(models.Message, {
+      foreignKey: "sender_id"
+    })
   };
 
   return User;

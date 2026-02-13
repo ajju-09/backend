@@ -14,6 +14,8 @@ const {
   findUserByKey,
   updateUser,
 } = require("../services/userServices");
+const uploadToCloudinary = require("../helper/uploadToCloudinary");
+const { getIo } = require("../socket");
 
 // register
 // POST /api/v1/users/register
@@ -33,25 +35,11 @@ const register = async (req, res) => {
     }
 
     logger.info(`${req.method} ${req.url}`);
-    const { name, email, phone, password, photo } = value;
+    const { name, email, phone, password } = value;
 
     // email and phone is unique
     const existedUser = await findSingleUser({ where: { email } });
     const existedPhone = await findSingleUser({ where: { phone } });
-
-    const data = {
-      id: existedUser.id,
-      name: existedUser.name,
-      email: existedUser.email,
-      phone: existedUser.phone,
-      photo: existedUser.photo,
-      is_online: existedUser.is_online,
-      last_seen: existedUser.last_seen,
-      isDeleted: existedUser.isDeleted,
-      isLogin: existedUser.isLogin,
-      createdAt: existedUser.createdAt,
-      updatedAt: existedUser.updatedAt,
-    };
 
     // check for this email already exists or not
     if (existedUser && existedPhone) {
@@ -60,16 +48,27 @@ const register = async (req, res) => {
         { where: { email: email } },
       );
 
+      const data = {
+        id: existedUser.id,
+        name: existedUser.name,
+        email: existedUser.email,
+        phone: existedUser.phone,
+        is_online: existedUser.is_online,
+        last_seen: existedUser.last_seen,
+        isDeleted: existedUser.isDeleted,
+        isLogin: existedUser.isLogin,
+        createdAt: existedUser.createdAt,
+        updatedAt: existedUser.updatedAt,
+      };
+
       const token = generateToken({ id: data.id, email: data.email });
 
-      return res
-        .status(200)
-        .json({
-          message: "Welcome back",
-          success: true,
-          token: token,
-          data: data,
-        });
+      return res.status(200).json({
+        message: "Welcome back",
+        success: true,
+        token: token,
+        data: data,
+      });
     }
 
     // hash password
@@ -81,7 +80,6 @@ const register = async (req, res) => {
       email,
       phone,
       password: hashPassword,
-      photo: photo,
       isLogin: true,
     });
 
@@ -195,19 +193,28 @@ const login = async (req, res) => {
 };
 
 // profile
-// GET /api/v1/users/profile
+// GET /api/v1/users/profile/:id
 // private access
 const profile = async (req, res) => {
   try {
     // take use id from token
-    const id = req.id;
+    // const userid = req.id;
+    const { id } = req.params;
+
+    const user = await findUserByKey(id);
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
+    }
 
     logger.info(`${req.method} ${req.url}`);
 
     // grab data from database exclude password
     const data = await findAllUser({
       where: {
-        id: id,
+        id: user.id,
       },
       attributes: {
         exclude: ["password"],
@@ -385,7 +392,9 @@ const uploadImage = async (req, res) => {
         .json({ message: "User not found ", success: false });
     }
 
-    const imageUrl = `http://192.168.1.49:3000/profileimage/${req.file.filename}`;
+    // implement cloudinary upload image
+    const image = await uploadToCloudinary(req.file.path);
+    const imageUrl = image.url;
 
     await updateUser({ photo: imageUrl }, { where: { id } });
 
@@ -407,6 +416,7 @@ const logout = async (req, res) => {
   try {
     // find user
     const id = req.id;
+    const io = getIo();
 
     const user = await findUserByKey(id);
 
@@ -416,7 +426,12 @@ const logout = async (req, res) => {
         .json({ message: "User not found ", success: false });
     }
 
-    await updateUser({ isLogin: false }, { where: { id: id } });
+    await updateUser(
+      { isLogin: false, is_online: false, last_seen: new Date() },
+      { where: { id: id } },
+    );
+
+    io.emit("user_offline", id);
 
     res
       .status(200)

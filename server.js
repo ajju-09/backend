@@ -2,11 +2,12 @@ const express = require("express");
 const dbconnection = require("./helper/checkDatabaseConnection");
 const userRouter = require("./routes/user.route");
 const chatRouter = require("./routes/chat.route");
+const messageRouter = require("./routes/message.route");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
 const http = require("http");
-const initialize = require("./socket");
+const { initialize } = require("./socket");
 
 dotenv.config();
 const app = express();
@@ -20,7 +21,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://192.168.1.17:3000"],
+    origin: "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -33,7 +34,8 @@ app.use("/profileimage", express.static(path.join(__dirname, "profileimage")));
 // routes
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/chat", chatRouter);
+app.use("/api/v1/message", messageRouter);
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
