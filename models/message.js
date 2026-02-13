@@ -1,0 +1,75 @@
+"use strict";
+
+module.exports = (sequelize, DataTypes) => {
+  const Message = sequelize.define("Message", {
+    sender_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    receiver_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    chat_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    text: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    image_url: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
+    reply_to: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    is_send: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    is_received: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    is_read: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    is_star: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    is_pin: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    delete_for_sender: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    delete_for_receiver: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+  });
+
+  Message.associate = (models) => {
+    Message.belongsTo(models.User, {
+      foreignKey: "sender_id",
+    });
+
+    Message.belongsTo(models.Chat, {
+      foreignKey: "chat_id",
+    });
+
+    Message.belongsTo(models.Message, {
+      foreignKey: "reply_to",
+    });
+  };
+
+  return Message;
+};

@@ -7,6 +7,8 @@ const {
   findAllChat,
   findChatByKey,
 } = require("../services/chatServices");
+const logger = require("../helper/logger");
+const { getIo } = require("../socket");
 
 // create chat
 // POST /api/v1/chat/create
@@ -15,6 +17,8 @@ const createChat = async (req, res) => {
   try {
     const senderId = req.id;
     const { receiverId } = req.body;
+
+    logger.info(`${req.method} ${req.url}`);
 
     if (!receiverId) {
       return res
@@ -55,33 +59,30 @@ const createChat = async (req, res) => {
     });
 
     if (existingChat) {
-      await updateChat(
-        { isDeleted: false },
-        {
-          where: {
-            [Op.and]: [{ user_one: senderId }, { user_two: receiverId }],
-          },
-        },
-      );
+      if (existingChat.isDeleted) {
+        await updateChat(
+          { isDeleted: false },
+          { where: { id: existingChat.id } },
+        );
+      }
 
       // find chat
       const updatedChat = await findOneChat({
         where: {
-          [Op.or]: [
-            {
-              user_one: senderId,
-              user_two: receiverId,
-            },
-            {
-              user_one: receiverId,
-              user_two: senderId,
-            },
-          ],
+          id: existingChat.id,
         },
       });
+      const io = getIo();
+      io.to(`user_${receiverId}`).emit("new_chat", updatedChat);
+
       return res.json({
         message: "Chat already exist",
         data: updatedChat,
+        receiver: {
+          id: recevier.id,
+          name: recevier.name,
+          imageUrl: recevier.photo,
+        },
       });
     }
 
@@ -91,10 +92,18 @@ const createChat = async (req, res) => {
       user_two: receiverId,
     });
 
+    const io = getIo();
+    io.to(`user_${receiverId}`).emit("new_chat", chat);
+
     res.status(200).json({
       message: "Chat created successfully ",
       success: true,
       data: chat,
+      receiver: {
+        id: recevier.id,
+        name: recevier.name,
+        imageUrl: recevier.photo,
+      },
     });
   } catch (error) {
     console.log("Error in create chat controller", error.message);
@@ -108,22 +117,31 @@ const createChat = async (req, res) => {
 const getMyChats = async (req, res) => {
   try {
     const senderId = req.id;
+    const { limit = 10 } = req.params;
+
+    logger.info(`${req.method} ${req.url}`);
 
     const chats = await findAllChat({
-      // where: {
-      //   [Op.or]: [{ user_one: senderId }, { user_two: senderId }],
-      // },
-
       where: {
-        user_one: senderId,
+        [Op.and]: [
+          { [Op.or]: [{ user_one: senderId }, { user_two: senderId }] },
+          { isDeleted: false },
+        ],
       },
 
       include: [
         {
           model: Users,
+          as: "UserOne",
+          attributes: ["id", "name", "photo", "is_online"],
+        },
+        {
+          model: Users,
+          as: "UserTwo",
           attributes: ["id", "name", "photo", "is_online"],
         },
       ],
+      limit: Number(limit),
       order: [["updatedAt", "DESC"]],
     });
 
@@ -141,6 +159,8 @@ const toggleBlock = async (req, res) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
+
+    logger.info(`${req.method} ${req.url}`);
 
     // check for chat in DB
     const chat = await findChatByKey(chatId);
@@ -178,6 +198,8 @@ const togglePin = async (req, res) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
+
+    logger.info(`${req.method} ${req.url}`);
 
     // find chat in db
     const chat = await findChatByKey(chatId);
@@ -218,6 +240,8 @@ const toggleMute = async (req, res) => {
     const userId = req.id;
     const { chatId } = req.params;
 
+    logger.info(`${req.method} ${req.url}`);
+
     // find chat in db
     const chat = await findChatByKey(chatId);
 
@@ -256,6 +280,8 @@ const deleteChat = async (req, res) => {
     const userId = req.id;
     const { chatId } = req.params;
 
+    logger.info(`${req.method} ${req.url}`);
+
     // find for chat
     const chat = await findChatByKey(chatId);
 
@@ -273,6 +299,10 @@ const deleteChat = async (req, res) => {
 
     // soft delete
     await updateChat({ isDeleted: true }, { where: { id: chatId } });
+
+    const receiverId = chat.user_one === userId ? chat.user_two : chat.user_one;
+    const io = getIo();
+    io.to(`user_${receiverId}`).emit("chat_deleted", chatId);
 
     res.status(200).json({ message: "Chat deleted ", success: true });
   } catch (error) {

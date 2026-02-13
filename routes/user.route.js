@@ -18,7 +18,7 @@ const router = express.Router();
 router.post("/register", register);
 router.post("/login", login);
 
-router.get("/profile", auth, profile);
+router.get("/profile/:id", auth, profile);
 router.get("/getall", auth, getAllUser);
 router.get("/search", auth, searchUsers);
 
