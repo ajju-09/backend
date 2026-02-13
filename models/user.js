@@ -1,4 +1,5 @@
-"Use strict";
+"use strict";
+const Chat = require("./chat");
 
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define("User", {
@@ -41,11 +42,11 @@ module.exports = (sequelize, DataTypes) => {
     isDeleted: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
-      allowNull:false,
+      allowNull: false,
     },
     isLogin: {
       type: DataTypes.BOOLEAN,
-      default: false
+      default: false,
     },
     createdAt: {
       type: DataTypes.DATE,
@@ -58,6 +59,16 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
     },
   });
+
+  User.associate = (models) => {
+    User.hasMany(models.Chat, {
+      foreignKey: "user_one",
+    });
+
+    User.hasMany(models.Chat, {
+      foreignKey: "user_two",
+    });
+  };
 
   return User;
 };
