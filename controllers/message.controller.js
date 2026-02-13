@@ -1,4 +1,4 @@
-const { Op, where, json } = require("sequelize");
+const { Op } = require("sequelize");
 const logger = require("../helper/logger");
 const db = require("../models");
 const { findChatByKey, updateChat } = require("../services/chatServices");
