@@ -8,7 +8,9 @@ const {
   getAllUser,
   update,
   logout,
-  searchUsers
+  searchUsers,
+  verifyOtp,
+  resendOtp,
 } = require("../controllers/user.controller");
 const auth = require("../middlewares/auth.middleware");
 const imageAuth = require("../middlewares/singleUpload.middleware");
@@ -17,6 +19,8 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
+router.post("/otp", verifyOtp);
+router.post("/resend", resendOtp);
 
 router.get("/profile/:id", auth, profile);
 router.get("/getall", auth, getAllUser);
@@ -26,7 +30,7 @@ router.put("/update", auth, imageAuth, update);
 
 router.delete("/delete", auth, deleteUser);
 
-router.get('/logout', auth, logout);
+router.get("/logout", auth, logout);
 
 // photo upload
 router.post("/upload", auth, imageAuth, uploadImage);

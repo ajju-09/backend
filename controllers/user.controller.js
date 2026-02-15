@@ -16,6 +16,8 @@ const {
 } = require("../services/userServices");
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
 const { getIo } = require("../socket");
+const sendEmail = require("../helper/sendMail");
+const { generateOtp, expiresIn } = require("../helper/generateOtp");
 
 // register
 // POST /api/v1/users/register
@@ -74,14 +76,26 @@ const register = async (req, res) => {
     // hash password
     const hashPassword = await bcrypt.hash(password, 10);
 
+    // generate otp
+    const Otp = generateOtp();
+
+    // generate expireIn time
+    const otpExpiry = expiresIn();
+
     // if not then create new user
     const newUser = await createUser({
       name,
       email,
       phone,
+      otp: Otp,
+      expiresAt: otpExpiry,
       password: hashPassword,
+      isVerified: false,
       isLogin: true,
     });
+
+    // send email
+    await sendEmail({ email: email, otp: Otp, name: name });
 
     const userDetail = {
       id: newUser.id,
@@ -98,12 +112,13 @@ const register = async (req, res) => {
     };
 
     if (newUser) {
-      await updateUser({ isLogin: true }, { where: { email: email } });
+      // await updateUser({ isLogin: true }, { where: { email: email } });
       const token = generateToken({
         id: userDetail.id,
         email: userDetail.email,
       });
-      res.status(200).json({
+
+      return res.status(200).json({
         message: "User registered successfully",
         success: true,
         data: userDetail,
@@ -478,6 +493,91 @@ const searchUsers = async (req, res) => {
   }
 };
 
+// POST /api/v1/users/otp
+const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    // find for email in database
+    const user = await findSingleUser({ where: { email: email } });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "Email not found", success: false });
+    }
+
+    // check otp feilds
+    if (user.otp === null) {
+      return res
+        .status(401)
+        .json({ message: "Otp is not present", success: false });
+    }
+
+    // compare otp
+    if (user.otp !== otp) {
+      return res
+        .status(400)
+        .json({ message: "Otp does not match", success: false });
+    }
+
+    if (new Date() > user.expiresAt) {
+      user.otp = null;
+      user.expiresAt = null;
+      await user.save();
+      return res.status(400).json({ message: "Otp expired", success: false });
+    }
+
+    // update isVerified
+    user.isVerified = true;
+    user.otp = null;
+    user.expiresAt = null;
+    await user.save();
+
+    res
+      .status(200)
+      .json({ message: "User verified successfully", success: true });
+  } catch (error) {
+    console.log("Error in verify otp", error.message);
+    res.status(500).json({ message: "SERVER ERROR", success: false });
+  }
+};
+
+// POST /api/v1/users/resend
+const resendOtp = async (req, res) => {
+  try {
+    const { email, name } = req.body;
+
+    // search for user
+    const user = await findSingleUser({ where: { email: email } });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "Email not found", success: false });
+    }
+
+    // generate otp
+    const Otp = generateOtp();
+
+    // generate expire time
+    const expireTime = expiresIn();
+
+    // save to database
+    user.otp = Otp;
+    user.expiresAt = expireTime;
+    await user.save();
+
+    // send email
+    await sendEmail({ email: email, name: name, otp: Otp });
+
+    res.status(200).json({ message: "Otp send successfully", success: true });
+  } catch (error) {
+    console.log("Error in resend otp", error.message);
+    res.status(500).json({ message: "SERVER ERROR", success: false });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -488,4 +588,6 @@ module.exports = {
   uploadImage,
   getAllUser,
   logout,
+  verifyOtp,
+  resendOtp,
 };

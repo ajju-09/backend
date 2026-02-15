@@ -30,6 +30,21 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       defaultValue: null,
     },
+    otp: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
+    },
+    expiresAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+    },
+    isVerified: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
     is_online: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
@@ -69,8 +84,8 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     User.hasMany(models.Message, {
-      foreignKey: "sender_id"
-    })
+      foreignKey: "sender_id",
+    });
   };
 
   return User;
