@@ -3,7 +3,7 @@ const generateOtp = () => {
   return otp;
 };
 const expiresIn = () => {
-  const time = new Date(Date.now() + 10 * 60 * 1000);
+  const time = new Date(Date.now() + 2 * 60 * 1000); // 2 min
   return time;
 };
 

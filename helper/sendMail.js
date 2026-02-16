@@ -16,7 +16,7 @@ const sendEmail = async (options) => {
     from: "chatme@gmail.com",
     to: options.email,
     subject: `${options.otp} is your account verification code`,
-    html: otpTemplate(options.name, options.otp),
+    html: otpTemplate(options.otp),
   };
 
   try {

@@ -10,7 +10,7 @@ const {
   logout,
   searchUsers,
   verifyOtp,
-  resendOtp,
+  sendOtp,
 } = require("../controllers/user.controller");
 const auth = require("../middlewares/auth.middleware");
 const imageAuth = require("../middlewares/singleUpload.middleware");
@@ -19,8 +19,8 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
-router.post("/otp", verifyOtp);
-router.post("/resend", resendOtp);
+router.post("/send-otp", sendOtp);
+router.post("/verify-otp", verifyOtp);
 
 router.get("/profile/:id", auth, profile);
 router.get("/getall", auth, getAllUser);

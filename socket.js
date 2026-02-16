@@ -17,28 +17,27 @@ const initialize = (server) => {
     console.log("==============================");
     console.log("User connected successfully", socket.id);
     console.log("==============================");
-
-    const token = socket.handshake.auth?.token;
-
-    if (!token) {
-      console.log("==============================");
-      console.log("No token, disconnecting...");
-      console.log("==============================");
-      return socket.disconnect();
-    }
-
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-
-    const userId = decodedToken.id;
-
-    if (!userId) {
-      console.log("==============================");
-      console.log("No userId found disconnecting.....");
-      console.log("==============================");
-      return socket.disconnect();
-    }
-
     try {
+      const token = socket.handshake.auth?.token;
+
+      if (!token) {
+        console.log("==============================");
+        console.log("No token, disconnecting...");
+        console.log("==============================");
+        return socket.disconnect();
+      }
+
+      const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+
+      const userId = decodedToken.id;
+
+      if (!userId) {
+        console.log("==============================");
+        console.log("No userId found disconnecting.....");
+        console.log("==============================");
+        return socket.disconnect();
+      }
+
       const userInfo = await findUserByKey(userId);
 
       if (userInfo) {

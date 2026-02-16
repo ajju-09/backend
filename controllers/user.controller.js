@@ -5,7 +5,7 @@ const {
 } = require("../helper/joiSchema");
 const bcrypt = require("bcrypt");
 const generateToken = require("../helper/generateToken");
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const logger = require("../helper/logger");
 const {
   findSingleUser,
@@ -76,26 +76,13 @@ const register = async (req, res) => {
     // hash password
     const hashPassword = await bcrypt.hash(password, 10);
 
-    // generate otp
-    const Otp = generateOtp();
-
-    // generate expireIn time
-    const otpExpiry = expiresIn();
-
     // if not then create new user
     const newUser = await createUser({
       name,
       email,
       phone,
-      otp: Otp,
-      expiresAt: otpExpiry,
       password: hashPassword,
-      isVerified: false,
-      isLogin: true,
     });
-
-    // send email
-    await sendEmail({ email: email, otp: Otp, name: name });
 
     const userDetail = {
       id: newUser.id,
@@ -493,7 +480,44 @@ const searchUsers = async (req, res) => {
   }
 };
 
-// POST /api/v1/users/otp
+// POST /api/v1/users/send-otp
+const sendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await findSingleUser({ where: { email: email } });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "user not found", success: false });
+    }
+
+    // generate otp
+    const Otp = generateOtp();
+
+    // hashed otp
+    const hashedOtp = await bcrypt.hash(Otp.toString(), 10);
+
+    // generate expire time
+    const expiresTime = expiresIn();
+
+    await updateUser(
+      { otp: hashedOtp, expiresAt: expiresTime },
+      { where: { email: email } },
+    );
+
+    // send email
+    await sendEmail({ email: email, otp: Otp });
+
+    res.status(200).json({ message: "Otp sent successfully", success: true });
+  } catch (error) {
+    console.log("Error in send otp", error.message);
+    res.status(500).json({ message: "SERVER ERROR", success: false });
+  }
+};
+
+// POST /api/v1/users/verify-otp
 const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -507,18 +531,20 @@ const verifyOtp = async (req, res) => {
         .json({ message: "Email not found", success: false });
     }
 
+    // comapre otp
+    const isMatch = await bcrypt.compare(otp, user.otp);
+
+    if (!isMatch) {
+      return res
+        .status(400)
+        .json({ message: "Otp does not match", success: false });
+    }
+
     // check otp feilds
     if (user.otp === null) {
       return res
         .status(401)
         .json({ message: "Otp is not present", success: false });
-    }
-
-    // compare otp
-    if (user.otp !== otp) {
-      return res
-        .status(400)
-        .json({ message: "Otp does not match", success: false });
     }
 
     if (new Date() > user.expiresAt) {
@@ -532,6 +558,7 @@ const verifyOtp = async (req, res) => {
     user.isVerified = true;
     user.otp = null;
     user.expiresAt = null;
+    user.isLogin = true;
     await user.save();
 
     res
@@ -539,41 +566,6 @@ const verifyOtp = async (req, res) => {
       .json({ message: "User verified successfully", success: true });
   } catch (error) {
     console.log("Error in verify otp", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
-  }
-};
-
-// POST /api/v1/users/resend
-const resendOtp = async (req, res) => {
-  try {
-    const { email, name } = req.body;
-
-    // search for user
-    const user = await findSingleUser({ where: { email: email } });
-
-    if (!user) {
-      return res
-        .status(404)
-        .json({ message: "Email not found", success: false });
-    }
-
-    // generate otp
-    const Otp = generateOtp();
-
-    // generate expire time
-    const expireTime = expiresIn();
-
-    // save to database
-    user.otp = Otp;
-    user.expiresAt = expireTime;
-    await user.save();
-
-    // send email
-    await sendEmail({ email: email, name: name, otp: Otp });
-
-    res.status(200).json({ message: "Otp send successfully", success: true });
-  } catch (error) {
-    console.log("Error in resend otp", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
   }
 };
@@ -589,5 +581,5 @@ module.exports = {
   getAllUser,
   logout,
   verifyOtp,
-  resendOtp,
+  sendOtp,
 };

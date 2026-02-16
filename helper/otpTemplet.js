@@ -1,4 +1,4 @@
-const otpTemplate = (name, otp) => {
+const otpTemplate = (otp) => {
   return `
   <!DOCTYPE html>
   <html>
@@ -39,7 +39,6 @@ const otpTemplate = (name, otp) => {
     <body>
       <div class="card">
         <h1>ChatMe</h1>
-        <h2>Hello ${name.toUpperCase()},</h2>
         <p>Your OTP for account verification is:</p>
 
         <div class="otp">${otp}</div>
