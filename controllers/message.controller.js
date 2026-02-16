@@ -43,10 +43,10 @@ const sendMessage = async (req, res) => {
 
     if (req.files && req.files.length > 0) {
       const uploads = await Promise.all(
-        req.files.map(async (file) => await uploadToCloudinary(file.path)),
+        req.files.map(async (file) => await uploadToCloudinary(file)),
       );
 
-      images = uploads.map((img) => img.url);
+      images = uploads.map((img) => img.secure_url);
     }
 
     if (replyTo) {

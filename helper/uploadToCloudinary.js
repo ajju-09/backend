@@ -1,17 +1,13 @@
 const cloudinary = require("../config/cloudinary");
 
-const uploadToCloudinary = async (imagePath) => {
-  await cloudinary.api.ping((err, result) => {
-    if (err) {
-      console.log("Ping failed", err);
-    }
-
-    console.log("Ping successfully", result);
-  });
-
+const uploadToCloudinary = async (file) => {
   try {
-    const result = await cloudinary.uploader.upload(imagePath, {
-      folder: "chat_images"
+    console.log(await cloudinary.api.ping());
+
+    const result = await cloudinary.uploader.upload(file.path, {
+      folder: "chat_images",
+      resource_type: "auto",
+      use_filename: true,
     });
 
     return result;
