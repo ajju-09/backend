@@ -11,6 +11,7 @@ const {
   searchUsers,
   verifyOtp,
   sendOtp,
+  forgotPassword,
 } = require("../controllers/user.controller");
 const auth = require("../middlewares/auth.middleware");
 const imageAuth = require("../middlewares/singleUpload.middleware");
@@ -21,6 +22,7 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
+router.post("/forgot-password", forgotPassword);
 
 router.get("/profile/:id", auth, profile);
 router.get("/getall", auth, getAllUser);

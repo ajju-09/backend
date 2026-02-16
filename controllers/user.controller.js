@@ -2,10 +2,13 @@ const {
   signUpSchema,
   loginSchema,
   updateSchema,
+  verifyOtpSchema,
+  sendOtpSchema,
+  forgotPasswordSchema,
 } = require("../helper/joiSchema");
 const bcrypt = require("bcrypt");
 const generateToken = require("../helper/generateToken");
-const { Op, where } = require("sequelize");
+const { Op } = require("sequelize");
 const logger = require("../helper/logger");
 const {
   findSingleUser,
@@ -282,7 +285,7 @@ const update = async (req, res) => {
 
     logger.info(`${req.method} ${req.url}`);
 
-    const { action, name, email, phone, newPassword } = value;
+    const { action, name, email, phone, newPassword, oldPassword } = value;
 
     // find user
     const user = await findUserByKey(id);
@@ -312,6 +315,14 @@ const update = async (req, res) => {
           .json({ message: "User updated successfully ", success: true });
 
       case "resetpassword":
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+
+        if (!isMatch) {
+          return res
+            .status(400)
+            .json({ message: "Old password does not match", success: false });
+        }
+
         // hased password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -483,7 +494,18 @@ const searchUsers = async (req, res) => {
 // POST /api/v1/users/send-otp
 const sendOtp = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { error, value } = sendOtpSchema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        message: "Error in invalid req body",
+        errors: error.details.map((err) => err.message),
+        success: false,
+      });
+    }
+
+    logger.info(`${req.method} ${req.url}`);
+    const { email } = value;
 
     const user = await findSingleUser({ where: { email: email } });
 
@@ -520,7 +542,18 @@ const sendOtp = async (req, res) => {
 // POST /api/v1/users/verify-otp
 const verifyOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { value, error } = verifyOtpSchema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        message: "Error in invalid req body",
+        errors: error.details.map((err) => err.message),
+        success: false,
+      });
+    }
+
+    logger.info(`${req.method} ${req.url}`);
+    const { email, otp } = value;
 
     // find for email in database
     const user = await findSingleUser({ where: { email: email } });
@@ -570,6 +603,46 @@ const verifyOtp = async (req, res) => {
   }
 };
 
+// POST /api/v1/users/forgot-password
+const forgotPassword = async (req, res) => {
+  try {
+    // const { email, newPass } = req.body;
+    const { error, value } = forgotPasswordSchema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        message: "Error in invalid req body",
+        errors: error.details.map((err) => err.message),
+        success: false,
+      });
+    }
+
+    logger.info(`${req.method} ${req.url}`);
+    const { email, newPass } = value;
+
+    const user = await findSingleUser({ where: { email: email } });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
+    }
+
+    // hash newPass
+    const hashedNewpass = await bcrypt.hash(newPass, 10);
+
+    // update it in database
+    await updateUser({ password: hashedNewpass }, { where: { email: email } });
+
+    res
+      .status(200)
+      .json({ message: "Password reset successfully", success: true });
+  } catch (error) {
+    console.log("Error in forgot password", error.message);
+    res.status(500).json({ message: "SERVER ERROR", success: false });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -582,4 +655,5 @@ module.exports = {
   logout,
   verifyOtp,
   sendOtp,
+  forgotPassword,
 };

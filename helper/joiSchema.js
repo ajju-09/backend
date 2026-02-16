@@ -75,6 +75,19 @@ const updateSchema = Joi.object({
     otherwise: Joi.forbidden(),
   }),
 
+  oldPassword: Joi.when("action", {
+    is: "resetpassword",
+    then: Joi.string()
+      .min(6)
+      .required()
+      .pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).+$/)
+      .messages({
+        "string.pattern.base":
+          "Password must contain uppercase, lowercase and number",
+      }),
+    otherwise: Joi.forbidden(),
+  }),
+
   // for password reset
   newPassword: Joi.when("action", {
     is: "resetpassword",
@@ -90,4 +103,44 @@ const updateSchema = Joi.object({
   }),
 });
 
-module.exports = { signUpSchema, loginSchema, updateSchema };
+const sendOtpSchema = Joi.object({
+  email: Joi.string().email().lowercase().required().messages({
+    "string.email": "Enter valid email",
+    "any.required": "Email is required",
+  }),
+});
+
+const verifyOtpSchema = Joi.object({
+  email: Joi.string().email().lowercase().required().messages({
+    "string.email": "Enter valid email",
+    "any.required": "Email is required",
+  }),
+  otp: Joi.string().length(6).required().trim().messages({
+    "otp.empty": "otp required",
+    "otp.length": "6 digit required",
+  }),
+});
+
+const forgotPasswordSchema = Joi.object({
+  email: Joi.string().email().required().lowercase().messages({
+    "string.email": "Enter valid email",
+    "any.required": "Email is required",
+  }),
+  newPass: Joi.string()
+    .min(6)
+    .required()
+    .pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).+$/)
+    .messages({
+      "string.pattern.base":
+        "Password must contain uppercase, lowercase and number",
+    }),
+});
+
+module.exports = {
+  signUpSchema,
+  loginSchema,
+  updateSchema,
+  forgotPasswordSchema,
+  verifyOtpSchema,
+  sendOtpSchema,
+};
