@@ -1,4 +1,4 @@
-const { Op, where } = require("sequelize");
+const { Op } = require("sequelize");
 const logger = require("../helper/logger");
 const db = require("../models");
 const { findChatByKey, updateChat } = require("../services/chatServices");
@@ -378,6 +378,52 @@ const deleteForAll = async (req, res) => {
     res.status(500).json({ message: "SERVER ERROR", success: false });
   }
 };
+// search message with in chat
+// GET /api/v1/message/search/msg
+// private access
+const searchMessageInChat = async (req, res) => {
+  try {
+    const userId = req.id;
+    const { chatId, text, limit = 10 } = req.query;
+
+    if (!chatId) {
+      return res
+        .status(400)
+        .json({ message: "Chat id required", success: false });
+    }
+
+    if (!text) {
+      return res.status(400).json({ message: "Text required", success: false });
+    }
+
+    const msg = await db.Message.findAll({
+      where: {
+        chat_id: chatId,
+        delete_for_all: false,
+        text: {
+          [Op.like]: `%${text}%`,
+        },
+        [Op.or]: [
+          {
+            [Op.and]: [{ sender_id: userId }, { delete_for_sender: false }],
+          },
+          {
+            [Op.and]: [{ receiver_id: userId }, { delete_for_receiver: false }],
+          },
+        ],
+      },
+      order: [["createdAt", "DESC"]],
+      limit: Number(limit),
+    });
+
+    res
+      .status(200)
+      .json({ message: "search message", success: true, msg: msg });
+  } catch (error) {
+    console.log("Error in search message controller", error.message);
+    res.status(500).json({ message: "SERVER ERROR", success: false });
+  }
+};
 
 module.exports = {
   sendMessage,
@@ -387,4 +433,5 @@ module.exports = {
   pinMessage,
   deleteForMe,
   deleteForAll,
+  searchMessageInChat,
 };

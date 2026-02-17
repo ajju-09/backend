@@ -8,6 +8,7 @@ const {
   pinMessage,
   deleteForMe,
   deleteForAll,
+  searchMessageInChat,
 } = require("../controllers/message.controller");
 const multiUpload = require("../middlewares/multiUpload.middleware");
 
@@ -18,6 +19,8 @@ router.post("/send", auth, multiUpload, sendMessage);
 
 // get messages of chat
 router.get("/:chatId", auth, getMessage);
+
+router.get("/search/msg", auth, searchMessageInChat);
 
 // mark as read
 router.patch("/read/:msgId", auth, readMessage);

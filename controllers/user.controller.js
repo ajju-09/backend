@@ -440,7 +440,7 @@ const logout = async (req, res) => {
     }
 
     await updateUser(
-      { isLogin: false, is_online: false, last_seen: new Date() },
+      { isLogin: false, last_seen: new Date() },
       { where: { id: id } },
     );
 
