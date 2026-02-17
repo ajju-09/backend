@@ -8,7 +8,6 @@ const {
   pinMessage,
   deleteForMe,
   deleteForAll,
-  replyToMsg,
 } = require("../controllers/message.controller");
 const multiUpload = require("../middlewares/multiUpload.middleware");
 
@@ -33,6 +32,6 @@ router.patch("/pin/:msgId", auth, pinMessage);
 router.patch("/delete/me/:msgId", auth, deleteForMe);
 
 // delete msg for all
-router.delete("/delete/all/:msgId", auth, deleteForAll);
+router.patch("/delete/all/:msgId", auth, deleteForAll);
 
 module.exports = router;

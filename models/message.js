@@ -55,6 +55,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    delete_for_all: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   });
 
   Message.associate = (models) => {

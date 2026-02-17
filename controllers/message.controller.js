@@ -1,4 +1,4 @@
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const logger = require("../helper/logger");
 const db = require("../models");
 const { findChatByKey, updateChat } = require("../services/chatServices");
@@ -149,6 +149,9 @@ const getMessage = async (req, res) => {
       where: {
         chat_id: chatId,
         [Op.and]: [
+          {
+            delete_for_all: false,
+          },
           {
             [Op.or]: [
               {
@@ -304,27 +307,31 @@ const deleteForMe = async (req, res) => {
     const userId = req.id;
     const { msgId } = req.params;
 
-    const msg = await db.Message.findByPk(msgId);
-
-    if (!msg) {
+    if (!msgId) {
       return res
         .status(404)
         .json({ message: "Message not found", success: false });
     }
+
+    const msg = await db.Message.findByPk(msgId);
 
     if (msg.sender_id === userId) {
       await db.Message.update(
         { delete_for_sender: true },
         { where: { id: msgId } },
       );
-    } else {
+    } else if (msg.receiver_id === userId) {
       await db.Message.update(
         { delete_for_receiver: true },
         { where: { id: msgId } },
       );
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Not Authorized", success: false });
     }
 
-    res.status(200).json({ message: "Message deleted for me", success: true });
+    res.status(200).json({ message: "Message delete for you ", success: true });
   } catch (error) {
     console.log("Error in delete for me message controller", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
@@ -348,36 +355,24 @@ const deleteForAll = async (req, res) => {
         .json({ message: "Message not found", success: false });
     }
 
-    // allow sender to delete
     if (msg.sender_id !== userId) {
       return res
-        .status(403)
-        .json({ message: "Not Authorized", success: false });
+        .status(400)
+        .json({ message: "Sender can delete for everyone", success: false });
     }
 
-    // delete msg
-    await db.Message.update(
-      {
-        text: null,
-        file_url: null,
-        delete_for_receiver: true,
-      },
-      { where: { id: msgId } },
-    );
+    msg.delete_for_all = true;
+    await msg.save();
 
-    // find chat to get receiver
-    const chat = await findChatByKey(msg.chat_id);
-    const receiverId = chat.user_one === userId ? chat.user_two : chat.user_one;
-
-    // notify other user
-    io.to(`user_${receiverId}`).emit("msg_delete", {
+    io.to(msg.sender_id.toString()).emit("msg_delete_for_all", {
       msgId,
-      type: "all",
     });
 
-    res
-      .status(200)
-      .json({ message: "Message deleted for everyone", success: true });
+    io.to(msg.receiver_id.toString()).emit("msg_delete_for_all", {
+      msgId,
+    });
+
+    res.status(200).json({ message: "Delete for all message", success: true });
   } catch (error) {
     console.log("Error in delete for all message controller", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
