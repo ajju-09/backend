@@ -14,7 +14,7 @@ const sendMessage = async (req, res) => {
     const senderId = req.id;
     const { chatId, text, replyTo } = req.body;
     const io = getIo();
-    const userSocketMap = getUserSocketMap();
+    // const userSocketMap = getUserSocketMap();
 
     logger.info(`${req.method} ${req.url}`);
 
@@ -38,6 +38,8 @@ const sendMessage = async (req, res) => {
     // check for receiverId
     const receiverId =
       chat.user_one === senderId ? chat.user_two : chat.user_one;
+
+    const receiver = await findUserByKey(receiverId);
 
     let images = [];
 
@@ -77,25 +79,32 @@ const sendMessage = async (req, res) => {
       image_url: msg.image_url ? JSON.parse(msg.image_url) : [],
     };
 
-    const receiverSocketId = userSocketMap.get(receiverId.toString());
-    console.log("===================================");
-    console.log("Receiver Socket Id", receiverSocketId);
-    console.log("===================================");
+    // const receiverSocketId = userSocketMap.get(receiverId.toString());
+    // console.log("===================================");
+    // console.log("Receiver Socket Id", receiverSocketId);
+    // console.log("===================================");
 
     // checking online users
-    if (receiverSocketId) {
+    // if (receiverSocketId) {
+    if (receiver && receiver.is_online > 0) {
       await db.Message.update({ is_received: true }, { where: { id: msg.id } });
 
-      io.to(receiverSocketId).emit("new_message", {
+      console.log("==============================");
+      console.log("receiver id", receiverId);
+      console.log("==============================");
+      io.to(receiverId.toString()).emit("new_message", {
         msg: responseMsg,
         is_received: true,
         reply_to: msg.reply_to,
       });
 
-      io.to(receiverSocketId).emit("new_noti", {
+      io.to(receiverId.toString()).emit("new_noti", {
         message: `${user.name} sent you a message`,
+        chatId: chatId,
       });
     }
+
+    // }
 
     await updateChat({ updatedAt: new Date() }, { where: { id: chatId } });
 

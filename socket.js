@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const db = require("./models");
 
 let io;
-const userSocketMap = new Map();
+// const userSocketMap = new Map();
 const initialize = (server) => {
   io = new Server(server, {
     cors: {
@@ -41,23 +41,29 @@ const initialize = (server) => {
       const userInfo = await findUserByKey(userId);
 
       if (userInfo) {
-        userSocketMap.set(userId.toString(), socket.id);
+        // userSocketMap.set(userId.toString(), socket.id);
 
-        const onlineUsers = Array.from(userSocketMap.keys());
-        console.log("==============================");
-        console.log(onlineUsers);
-        console.log("==============================");
+        // const onlineUsers = Array.from(userSocketMap.keys());
+        // console.log("==============================");
+        // console.log(onlineUsers);
+        // console.log("==============================");
 
-        socket.emit("online_users", onlineUsers);
+        // socket.emit("online_users", onlineUsers);
 
+        // console.log("==============================");
+        // console.log(userSocketMap);
+        // console.log("==============================");
+
+        socket.join(userId.toString());
         console.log("==============================");
-        console.log(userSocketMap);
+        console.log("userId", userId);
         console.log("==============================");
 
         await updateUser(
-          { is_online: true, last_seen: null },
+          { is_online: userInfo.is_online + 1, last_seen: null },
           { where: { id: userInfo.id } },
         );
+
         if (!userInfo.is_online) {
           await connect(userInfo);
         }
@@ -95,16 +101,23 @@ const initialize = (server) => {
       // Disconnect
       socket.on("disconnect", async () => {
         if (userId) {
-          userSocketMap.delete(userId.toString());
+          // userSocketMap.delete(userId.toString());
 
           const userInfo = await findUserByKey(userId);
 
           if (userInfo) {
             await updateUser(
-              { is_online: false, last_seen: new Date() },
+              {
+                is_online: userInfo.is_online <= 0 ? 0 : userInfo.is_online - 1,
+                last_seen: new Date(),
+              },
               { where: { id: userInfo.id } },
             );
-            await disconnect(userInfo.id);
+
+            if (userInfo.is_online - 1 <= 0) {
+              await disconnect(userInfo.id);
+            }
+
             console.log("=============================");
             console.log("User disconnnected");
             console.log("=============================");
@@ -120,6 +133,9 @@ const initialize = (server) => {
 
 const connect = async (userInfo) => {
   io.emit("online_status", JSON.stringify({ uid: userInfo.id, on: 1 }));
+  console.log("=============================");
+  console.log("online_status", userInfo.id);
+  console.log("=============================");
 };
 
 const disconnect = async (userId) => {
@@ -128,6 +144,6 @@ const disconnect = async (userId) => {
 
 const getIo = () => io;
 
-const getUserSocketMap = () => userSocketMap;
+// const getUserSocketMap = () => userSocketMap;
 
-module.exports = { initialize, getIo, getUserSocketMap };
+module.exports = { initialize, getIo };

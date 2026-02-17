@@ -406,7 +406,7 @@ const uploadImage = async (req, res) => {
     }
 
     // implement cloudinary upload image
-    const image = await uploadToCloudinary(req.file.path);
+    const image = await uploadToCloudinary(req.file);
     const imageUrl = image.url;
 
     await updateUser({ photo: imageUrl }, { where: { id } });
