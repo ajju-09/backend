@@ -3,6 +3,7 @@ const dbconnection = require("./helper/checkDatabaseConnection");
 const userRouter = require("./routes/user.route");
 const chatRouter = require("./routes/chat.route");
 const messageRouter = require("./routes/message.route");
+const chatSetting = require("./routes/chatSetting.route");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
@@ -35,6 +36,8 @@ app.use("/profileimage", express.static(path.join(__dirname, "profileimage")));
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/chat", chatRouter);
 app.use("/api/v1/message", messageRouter);
+
+app.use("/api/v2/chatsetting", chatSetting);
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

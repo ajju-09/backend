@@ -1,4 +1,4 @@
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const { findUserByKey, Users } = require("../services/userServices");
 const {
   findOneChat,
@@ -8,6 +8,7 @@ const {
 } = require("../services/chatServices");
 const logger = require("../helper/logger");
 const { getIo } = require("../socket");
+const db = require("../models");
 
 // create chat
 // POST /api/v1/chat/create
@@ -58,21 +59,18 @@ const createChat = async (req, res) => {
     });
 
     if (existingChat) {
-      if (existingChat.isDeleted) {
-        await updateChat(
-          { isDeleted: false },
-          { where: { id: existingChat.id } },
-        );
-      }
-
+      await db.ChatSetting.update(
+        { is_delete: false },
+        { where: { chat_id: existingChat.id, user_id: senderId } },
+      );
       // find chat
       const updatedChat = await findOneChat({
         where: {
           id: existingChat.id,
         },
       });
-      const io = getIo();
-      io.to(`user_${receiverId}`).emit("new_chat", updatedChat);
+      // const io = getIo();
+      // io.to(`user_${receiverId}`).emit("new_chat", updatedChat);
 
       return res.json({
         message: "Chat already exist",
@@ -91,8 +89,19 @@ const createChat = async (req, res) => {
       user_two: receiverId,
     });
 
-    const io = getIo();
-    io.to(`user_${receiverId}`).emit("new_chat", chat);
+    await db.ChatSetting.bulkCreate([
+      {
+        chat_id: chat.id,
+        user_id: chat.user_one,
+      },
+      {
+        chat_id: chat.id,
+        user_id: chat.user_two,
+      },
+    ]);
+
+    // const io = getIo();
+    // io.to(`user_${receiverId}`).emit("new_chat", chat);
 
     res.status(200).json({
       message: "Chat created successfully ",
@@ -115,20 +124,22 @@ const createChat = async (req, res) => {
 // private access
 const getMyChats = async (req, res) => {
   try {
-    const senderId = req.id;
+    const userId = req.id;
     const { limit = 10 } = req.params;
 
     logger.info(`${req.method} ${req.url}`);
 
     const chats = await findAllChat({
       where: {
-        [Op.and]: [
-          { [Op.or]: [{ user_one: senderId }, { user_two: senderId }] },
-          { isDeleted: false },
-        ],
+        [Op.or]: [{ user_one: userId }, { user_two: userId }],
       },
 
       include: [
+        {
+          model: db.ChatSetting,
+          where: { user_id: userId, is_delete: false },
+          attributes: ["user_id", "is_pin", "is_mute", "is_block", "is_delete"],
+        },
         {
           model: Users,
           as: "UserOne",
@@ -141,7 +152,10 @@ const getMyChats = async (req, res) => {
         },
       ],
       limit: Number(limit),
-      order: [["updatedAt", "DESC"]],
+      order: [
+        // [db.ChatSetting, "is_pin", "DESC"],
+        ["updatedAt", "DESC"],
+      ],
     });
 
     res.status(200).json({ message: "My chats", success: true, data: chats });
@@ -154,8 +168,4 @@ const getMyChats = async (req, res) => {
 module.exports = {
   createChat,
   getMyChats,
-  toggleBlock,
-  toggleMute,
-  togglePin,
-  deleteChat,
 };
