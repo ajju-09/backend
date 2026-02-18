@@ -12,22 +12,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      is_blocked: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-      },
-      is_pin: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-      },
-      is_muted: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-      },
-      isDeleted: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-      },
     },
     {
       timestamps: true,
