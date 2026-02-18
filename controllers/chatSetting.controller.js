@@ -1,5 +1,6 @@
-const db = require("../models");
 const { findChatByKey } = require("../services/chatServices");
+const { findOneChatSetting } = require("../services/chatSettingServices");
+const { updateMessage } = require("../services/messageService");
 
 // pin chat
 // PATCH /api/v2/chatsetting/pin/:chatId
@@ -8,6 +9,8 @@ const pinChat = async (req, res) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
+
+    logger.info(`${req.method} ${req.url}`);
 
     if (!chatId) {
       return res
@@ -29,7 +32,7 @@ const pinChat = async (req, res) => {
         .json({ message: "Not Authorized", success: false });
     }
 
-    const chatsetting = await db.ChatSetting.findOne({
+    const chatsetting = await findOneChatSetting({
       where: { chat_id: chatId, user_id: userId },
     });
 
@@ -63,6 +66,8 @@ const muteChat = async (req, res) => {
     const userId = req.id;
     const { chatId } = req.params;
 
+    logger.info(`${req.method} ${req.url}`);
+
     if (!chatId) {
       return res
         .status(404)
@@ -83,7 +88,7 @@ const muteChat = async (req, res) => {
         .json({ message: "Not Authorized", success: false });
     }
 
-    const chatsetting = await db.ChatSetting.findOne({
+    const chatsetting = await findOneChatSetting({
       where: { chat_id: chatId, user_id: userId },
     });
 
@@ -117,6 +122,8 @@ const blockChat = async (req, res) => {
     const userId = req.id;
     const { chatId } = req.params;
 
+    logger.info(`${req.method} ${req.url}`);
+
     if (!chatId) {
       return res
         .status(404)
@@ -137,7 +144,7 @@ const blockChat = async (req, res) => {
         .json({ message: "Not Authorized", success: false });
     }
 
-    const chatsetting = await db.ChatSetting.findOne({
+    const chatsetting = await findOneChatSetting({
       where: { chat_id: chatId, user_id: userId },
     });
 
@@ -171,6 +178,8 @@ const deleteChat = async (req, res) => {
     const userId = req.id;
     const { chatId } = req.params;
 
+    logger.info(`${req.method} ${req.url}`);
+
     if (!chatId) {
       return res
         .status(404)
@@ -191,7 +200,7 @@ const deleteChat = async (req, res) => {
         .json({ message: "Not Authorized", success: false });
     }
 
-    const chatsetting = await db.ChatSetting.findOne({
+    const chatsetting = await findOneChatSetting({
       where: { chat_id: chatId, user_id: userId },
     });
 
@@ -204,7 +213,7 @@ const deleteChat = async (req, res) => {
     chatsetting.is_delete = !chatsetting.is_delete;
     await chatsetting.save();
 
-    await db.Message.update(
+    await updateMessage(
       { delete_for_all: true },
       { where: { chat_id: chatId } },
     );

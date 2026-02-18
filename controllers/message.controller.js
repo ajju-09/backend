@@ -1,10 +1,16 @@
 const { Op } = require("sequelize");
 const logger = require("../helper/logger");
-const db = require("../models");
 const { findChatByKey, updateChat } = require("../services/chatServices");
 const { Users, findUserByKey } = require("../services/userServices");
-const { getIo, getUserSocketMap } = require("../socket");
+const { getIo } = require("../socket");
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
+const {
+  findOneMessage,
+  createMessage,
+  updateMessage,
+  findAllMessage,
+  findMessageByKey,
+} = require("../services/messageService");
 
 // send message
 // POST /api/v1/message/send
@@ -14,7 +20,6 @@ const sendMessage = async (req, res) => {
     const senderId = req.id;
     const { chatId, text, replyTo } = req.body;
     const io = getIo();
-    // const userSocketMap = getUserSocketMap();
 
     logger.info(`${req.method} ${req.url}`);
 
@@ -52,7 +57,7 @@ const sendMessage = async (req, res) => {
     }
 
     if (replyTo) {
-      const parentMsg = await db.Message.findOne({
+      const parentMsg = await findOneMessage({
         where: { id: replyTo, chat_id: chatId },
       });
 
@@ -64,7 +69,7 @@ const sendMessage = async (req, res) => {
     }
 
     // create new message
-    const msg = await db.Message.create({
+    const msg = await createMessage({
       sender_id: senderId,
       receiver_id: receiverId,
       chat_id: chatId,
@@ -79,15 +84,9 @@ const sendMessage = async (req, res) => {
       image_url: msg.image_url ? JSON.parse(msg.image_url) : [],
     };
 
-    // const receiverSocketId = userSocketMap.get(receiverId.toString());
-    // console.log("===================================");
-    // console.log("Receiver Socket Id", receiverSocketId);
-    // console.log("===================================");
-
     // checking online users
-    // if (receiverSocketId) {
     if (receiver && receiver.is_online > 0) {
-      await db.Message.update({ is_received: true }, { where: { id: msg.id } });
+      await updateMessage({ is_received: true }, { where: { id: msg.id } });
 
       console.log("==============================");
       console.log("receiver id", receiverId);
@@ -103,8 +102,6 @@ const sendMessage = async (req, res) => {
         chatId: chatId,
       });
     }
-
-    // }
 
     await updateChat({ updatedAt: new Date() }, { where: { id: chatId } });
 
@@ -145,7 +142,7 @@ const getMessage = async (req, res) => {
     }
 
     // using chat id fetch all messages
-    const messages = await db.Message.findAll({
+    const messages = await findAllMessage({
       where: {
         chat_id: chatId,
         [Op.and]: [
@@ -193,11 +190,10 @@ const readMessage = async (req, res) => {
   try {
     const userId = req.id;
     const { msgId } = req.params;
-    const io = getIo();
 
     logger.info(`${req.method} ${req.url}`);
 
-    const msg = await db.Message.findByPk(msgId);
+    const msg = await findMessageByKey(msgId);
 
     if (!msg) {
       return res
@@ -211,16 +207,10 @@ const readMessage = async (req, res) => {
         .json({ message: "can't read msg yourself ", success: false });
     }
 
-    await db.Message.update(
+    await updateMessage(
       { is_received: true, is_read: true },
       { where: { id: msgId, receiver_id: userId } },
     );
-
-    // notify sender
-    io.to(msg.sender_id).emit("seen_message", {
-      msgId,
-      chatId: msg.chat_id,
-    });
 
     res
       .status(200)
@@ -241,7 +231,7 @@ const starMessage = async (req, res) => {
 
     logger.info(`${req.method} ${req.url}`);
 
-    const msg = await db.Message.findByPk(msgId);
+    const msg = await findMessageByKey(msgId);
 
     if (!msg) {
       return res.status(404).json({ message: "Msg not found", success: false });
@@ -276,7 +266,7 @@ const pinMessage = async (req, res) => {
 
     logger.info(`${req.method} ${req.url}`);
 
-    const msg = await db.Message.findByPk(msgId);
+    const msg = await findMessageByKey(msgId);
 
     if (!msg) {
       return res.status(404).json({ message: "Msg not found", success: false });
@@ -313,15 +303,15 @@ const deleteForMe = async (req, res) => {
         .json({ message: "Message not found", success: false });
     }
 
-    const msg = await db.Message.findByPk(msgId);
+    const msg = await findMessageByKey(msgId);
 
     if (msg.sender_id === userId) {
-      await db.Message.update(
+      await updateMessage(
         { delete_for_sender: true },
         { where: { id: msgId } },
       );
     } else if (msg.receiver_id === userId) {
-      await db.Message.update(
+      await updateMessage(
         { delete_for_receiver: true },
         { where: { id: msgId } },
       );
@@ -347,7 +337,7 @@ const deleteForAll = async (req, res) => {
     const { msgId } = req.params;
     const io = getIo();
 
-    const msg = await db.Message.findByPk(msgId);
+    const msg = await findMessageByKey(msgId);
 
     if (!msg) {
       return res
@@ -386,6 +376,8 @@ const searchMessageInChat = async (req, res) => {
     const userId = req.id;
     const { chatId, text, limit = 10 } = req.query;
 
+    logger.info(`${req.method} ${req.url}`);
+
     if (!chatId) {
       return res
         .status(400)
@@ -396,7 +388,7 @@ const searchMessageInChat = async (req, res) => {
       return res.status(400).json({ message: "Text required", success: false });
     }
 
-    const msg = await db.Message.findAll({
+    const msg = await findAllMessage({
       where: {
         chat_id: chatId,
         delete_for_all: false,
