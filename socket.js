@@ -40,7 +40,7 @@ const initialize = (server) => {
 
       const userInfo = await findUserByKey(userId);
 
-      if (userInfo) {
+      if (userInfo?.id) {
         // userSocketMap.set(userId.toString(), socket.id);
 
         // const onlineUsers = Array.from(userSocketMap.keys());
@@ -59,8 +59,12 @@ const initialize = (server) => {
         console.log("userId", userId);
         console.log("==============================");
 
+        // await updateUser(
+        //   { is_online: userInfo.is_online + 1, last_seen: null },
+        //   { where: { id: userInfo.id } },
+        // );
         await updateUser(
-          { is_online: userInfo.is_online + 1, last_seen: null },
+          { is_online: true, last_seen: null },
           { where: { id: userInfo.id } },
         );
 
@@ -106,9 +110,16 @@ const initialize = (server) => {
           const userInfo = await findUserByKey(userId);
 
           if (userInfo) {
+            // await updateUser(
+            //   {
+            //     is_online: userInfo.is_online <= 0 ? 0 : userInfo.is_online - 1,
+            //     last_seen: new Date(),
+            //   },
+            //   { where: { id: userInfo.id } },
+            // );
             await updateUser(
               {
-                is_online: userInfo.is_online <= 0 ? 0 : userInfo.is_online - 1,
+                is_online: false,
                 last_seen: new Date(),
               },
               { where: { id: userInfo.id } },

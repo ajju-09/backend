@@ -103,23 +103,25 @@ const register = async (req, res) => {
 
     if (newUser) {
       // await updateUser({ isLogin: true }, { where: { email: email } });
-      const token = generateToken({
-        id: userDetail.id,
-        email: userDetail.email,
-      });
+      // const token = generateToken({
+      //   id: userDetail.id,
+      //   email: userDetail.email,
+      // });
 
       return res.status(200).json({
         message: "User registered successfully",
         success: true,
         data: userDetail,
-        token: token,
+        // token: token,
       });
     }
 
     res.status(400).json({ message: "Something went wrong", success: false });
   } catch (error) {
     console.log("Error in register controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    res
+      .status(500)
+      .json({ message: "SERVER ERROR", success: false, msg: error.message });
   }
 };
 
@@ -315,6 +317,13 @@ const update = async (req, res) => {
           .json({ message: "User updated successfully ", success: true });
 
       case "resetpassword":
+        if (oldPassword === newPassword) {
+          return res.status(400).json({
+            message: "Old password and New password not be same",
+            success: false,
+          });
+        }
+
         const isMatch = await bcrypt.compare(oldPassword, user.password);
 
         if (!isMatch) {
@@ -366,7 +375,7 @@ const deleteUser = async (req, res) => {
 
     // update is isDeleted col
     await updateUser(
-      { isDeleted: true, isLogin: false },
+      { isDeleted: true, isLogin: false, is_online: false, isVerified: false },
       { where: { id: id } },
     );
 
@@ -594,9 +603,17 @@ const verifyOtp = async (req, res) => {
     user.isLogin = true;
     await user.save();
 
-    res
-      .status(200)
-      .json({ message: "User verified successfully", success: true });
+    // generate tokem
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+    });
+
+    res.status(200).json({
+      message: "User verified successfully",
+      success: true,
+      token: token,
+    });
   } catch (error) {
     console.log("Error in verify otp", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
