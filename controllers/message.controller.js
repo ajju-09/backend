@@ -7,7 +7,6 @@ const uploadToCloudinary = require("../helper/uploadToCloudinary");
 const {
   findOneMessage,
   createMessage,
-  updateMessage,
   findAllMessage,
   findMessageByKey,
 } = require("../services/messageService");
@@ -76,7 +75,6 @@ const sendMessage = async (req, res) => {
       text,
       image_url: images.length > 0 ? JSON.stringify(images) : null,
       reply_to: replyTo || null,
-      is_send: true,
     });
 
     const responseMsg = {
@@ -86,14 +84,11 @@ const sendMessage = async (req, res) => {
 
     // checking online users
     if (receiver && receiver.is_online > 0) {
-      await updateMessage({ is_received: true }, { where: { id: msg.id } });
-
       console.log("==============================");
       console.log("receiver id", receiverId);
       console.log("==============================");
       io.to(receiverId.toString()).emit("new_message", {
         msg: responseMsg,
-        is_received: true,
         reply_to: msg.reply_to,
       });
 
@@ -153,13 +148,11 @@ const getMessage = async (req, res) => {
             [Op.or]: [
               {
                 sender_id: userId,
-                delete_for_sender: false,
               },
               {
                 sender_id: {
                   [Op.ne]: userId,
                 },
-                delete_for_receiver: false,
               },
             ],
           },
@@ -183,79 +176,6 @@ const getMessage = async (req, res) => {
   }
 };
 
-// read message
-// PATCH /api/v1/message/read/:msgId
-// private access
-const readMessage = async (req, res) => {
-  try {
-    const userId = req.id;
-    const { msgId } = req.params;
-
-    logger.info(`${req.method} ${req.url}`);
-
-    const msg = await findMessageByKey(msgId);
-
-    if (!msg) {
-      return res
-        .status(404)
-        .json({ message: "Message not found ", success: false });
-    }
-
-    if (msg.sender_id === userId) {
-      return res
-        .status(400)
-        .json({ message: "can't read msg yourself ", success: false });
-    }
-
-    await updateMessage(
-      { is_received: true, is_read: true },
-      { where: { id: msgId, receiver_id: userId } },
-    );
-
-    res
-      .status(200)
-      .json({ message: "message read successfully", success: true });
-  } catch (error) {
-    console.log("Error in read message controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
-  }
-};
-
-// star message
-// PATCH /api/v1/message/star/:msgId
-// private access
-const starMessage = async (req, res) => {
-  try {
-    const userId = req.id;
-    const { msgId } = req.params;
-
-    logger.info(`${req.method} ${req.url}`);
-
-    const msg = await findMessageByKey(msgId);
-
-    if (!msg) {
-      return res.status(404).json({ message: "Msg not found", success: false });
-    }
-
-    // cannot star own message
-    if (msg.sender_id === userId) {
-      return res
-        .status(403)
-        .json({ message: "Not Authorized", success: false });
-    }
-
-    msg.is_star = !msg.is_star;
-    await msg.save();
-
-    res
-      .status(200)
-      .json({ message: msg.is_star ? "Message star" : "Message unstar" });
-  } catch (error) {
-    console.log("Error in star message controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
-  }
-};
-
 // pin message
 // PATCH /api/v1/message/pin/:msgId
 // private access
@@ -272,9 +192,10 @@ const pinMessage = async (req, res) => {
       return res.status(404).json({ message: "Msg not found", success: false });
     }
 
-    // cannot pin own message
-    if (msg.sender_id === userId) {
-      return res.status(403).json({ message: "Not Authorized" });
+    if (msg.sender_id !== userId && msg.receiver_id !== userId) {
+      return res
+        .status(401)
+        .json({ message: "Your not authorized", success: false });
     }
 
     msg.is_pin = !msg.is_pin;
@@ -285,45 +206,6 @@ const pinMessage = async (req, res) => {
       .json({ message: msg.is_pin ? "Message pin" : "Message unpin" });
   } catch (error) {
     console.log("Error in pin message controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
-  }
-};
-
-// delete message for me
-// PATCH /api/v1/message/delete/me/:msgId
-// private access
-const deleteForMe = async (req, res) => {
-  try {
-    const userId = req.id;
-    const { msgId } = req.params;
-
-    if (!msgId) {
-      return res
-        .status(404)
-        .json({ message: "Message not found", success: false });
-    }
-
-    const msg = await findMessageByKey(msgId);
-
-    if (msg.sender_id === userId) {
-      await updateMessage(
-        { delete_for_sender: true },
-        { where: { id: msgId } },
-      );
-    } else if (msg.receiver_id === userId) {
-      await updateMessage(
-        { delete_for_receiver: true },
-        { where: { id: msgId } },
-      );
-    } else {
-      return res
-        .status(400)
-        .json({ message: "Not Authorized", success: false });
-    }
-
-    res.status(200).json({ message: "Message delete for you ", success: true });
-  } catch (error) {
-    console.log("Error in delete for me message controller", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
   }
 };
@@ -362,7 +244,9 @@ const deleteForAll = async (req, res) => {
       msgId,
     });
 
-    res.status(200).json({ message: "Delete for all message", success: true });
+    res
+      .status(200)
+      .json({ message: "Message delete for everyone", success: true });
   } catch (error) {
     console.log("Error in delete for all message controller", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
@@ -373,7 +257,6 @@ const deleteForAll = async (req, res) => {
 // private access
 const searchMessageInChat = async (req, res) => {
   try {
-    const userId = req.id;
     const { chatId, text, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
@@ -395,14 +278,6 @@ const searchMessageInChat = async (req, res) => {
         text: {
           [Op.like]: `%${text}%`,
         },
-        [Op.or]: [
-          {
-            [Op.and]: [{ sender_id: userId }, { delete_for_sender: false }],
-          },
-          {
-            [Op.and]: [{ receiver_id: userId }, { delete_for_receiver: false }],
-          },
-        ],
       },
       order: [["createdAt", "DESC"]],
       limit: Number(limit),
@@ -420,10 +295,7 @@ const searchMessageInChat = async (req, res) => {
 module.exports = {
   sendMessage,
   getMessage,
-  readMessage,
-  starMessage,
   pinMessage,
-  deleteForMe,
   deleteForAll,
   searchMessageInChat,
 };

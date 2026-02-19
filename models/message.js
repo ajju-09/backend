@@ -27,31 +27,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true,
     },
-    is_send: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    is_received: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    is_read: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    is_star: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
     is_pin: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    delete_for_sender: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    delete_for_receiver: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
