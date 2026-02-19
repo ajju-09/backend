@@ -10,6 +10,7 @@ const {
   findAllMessage,
   findMessageByKey,
 } = require("../services/messageService");
+const db = require("../models");
 
 // send message
 // POST /api/v1/message/send
@@ -74,8 +75,13 @@ const sendMessage = async (req, res) => {
       chat_id: chatId,
       text,
       image_url: images.length > 0 ? JSON.stringify(images) : null,
-      reply_to: replyTo || null,
+      reply_to: Number(replyTo) || null,
     });
+
+    await db.MessageSetting.bulkCreate([
+      { msg_id: msg.id, chat_id: chatId, user_id: msg.sender_id },
+      { msg_id: msg.id, chat_id: chatId, user_id: msg.receiver_id },
+    ]);
 
     const responseMsg = {
       ...msg.toJSON(),
@@ -140,28 +146,24 @@ const getMessage = async (req, res) => {
     const messages = await findAllMessage({
       where: {
         chat_id: chatId,
+        delete_for_all: false,
+        [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
         [Op.and]: [
-          {
-            delete_for_all: false,
-          },
-          {
-            [Op.or]: [
-              {
-                sender_id: userId,
-              },
-              {
-                sender_id: {
-                  [Op.ne]: userId,
-                },
-              },
-            ],
-          },
+          db.sequelize.literal(`
+              NOT EXISTS (
+                SELECT 1 FROM message_settings 
+                WHERE msg_id = Message.id 
+                AND user_id  = ${userId} 
+                AND delete_for_me = true
+              )
+            `),
         ],
       },
       include: {
         model: Users,
         attributes: ["id", "name", "photo"],
       },
+
       order: [["createdAt", "ASC"]],
     });
 
@@ -257,6 +259,7 @@ const deleteForAll = async (req, res) => {
 // private access
 const searchMessageInChat = async (req, res) => {
   try {
+    const userId = req.id;
     const { chatId, text, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
@@ -278,6 +281,15 @@ const searchMessageInChat = async (req, res) => {
         text: {
           [Op.like]: `%${text}%`,
         },
+        [Op.and]: [
+          db.sequelize.literal(`
+            NOT EXISTS (
+            SELECT 1 FROM message_settings ms
+            WHERE ms.msg_id = Message.id
+            AND ms.user_id = ${userId}
+            AND ms.delete_for_me = true
+          )`),
+        ],
       },
       order: [["createdAt", "DESC"]],
       limit: Number(limit),

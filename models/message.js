@@ -49,6 +49,10 @@ module.exports = (sequelize, DataTypes) => {
     Message.belongsTo(models.Message, {
       foreignKey: "reply_to",
     });
+
+    Message.hasMany(models.MessageSetting, {
+      foreignKey: "msg_id",
+    });
   };
 
   return Message;

@@ -4,6 +4,7 @@ const userRouter = require("./routes/user.route");
 const chatRouter = require("./routes/chat.route");
 const messageRouter = require("./routes/message.route");
 const chatSetting = require("./routes/chatSetting.route");
+const messageSetting = require("./routes/messageSetting.route");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
@@ -38,6 +39,8 @@ app.use("/api/v1/chat", chatRouter);
 app.use("/api/v1/message", messageRouter);
 
 app.use("/api/v2/chatsetting", chatSetting);
+
+app.use("/api/v2/messagesetting", messageSetting);
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
