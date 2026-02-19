@@ -108,6 +108,9 @@ const sendOtpSchema = Joi.object({
     "string.email": "Enter valid email",
     "any.required": "Email is required",
   }),
+  action: Joi.string().required().messages({
+    "string.required": "action required",
+  }),
 });
 
 const verifyOtpSchema = Joi.object({

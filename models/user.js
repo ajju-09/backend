@@ -30,6 +30,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       defaultValue: null,
     },
+    otp_purpose: {
+      type: DataTypes.ENUM("signup", "forgot_password"),
+      allowNull: true,
+      defaultValue: null,
+    },
     otp: {
       type: DataTypes.STRING(100),
       allowNull: true,

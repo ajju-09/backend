@@ -66,12 +66,9 @@ const register = async (req, res) => {
         updatedAt: existedUser.updatedAt,
       };
 
-      const token = generateToken({ id: data.id, email: data.email });
-
       return res.status(200).json({
         message: "Welcome back",
         success: true,
-        token: token,
         data: data,
       });
     }
@@ -85,6 +82,7 @@ const register = async (req, res) => {
       email,
       phone,
       password: hashPassword,
+      isVerified: false,
     });
 
     const userDetail = {
@@ -102,17 +100,10 @@ const register = async (req, res) => {
     };
 
     if (newUser) {
-      // await updateUser({ isLogin: true }, { where: { email: email } });
-      // const token = generateToken({
-      //   id: userDetail.id,
-      //   email: userDetail.email,
-      // });
-
       return res.status(200).json({
         message: "User registered successfully",
         success: true,
         data: userDetail,
-        // token: token,
       });
     }
 
@@ -148,7 +139,23 @@ const login = async (req, res) => {
     // find user by email
     const user = await findSingleUser({ where: { email } });
 
-    if (!user || user.isDeleted) {
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
+    }
+
+    if (user.isVerified === false) {
+      user.otp = null;
+      user.expiresAt = null;
+      user.otp_purpose = null;
+      await user.save();
+      return res
+        .status(400)
+        .json({ message: "Please verify your email", success: false });
+    }
+
+    if (user.isDeleted === true) {
       return res
         .status(401)
         .json({ message: "User does not exists", success: false });
@@ -158,7 +165,7 @@ const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({
+      return res.status(400).json({
         message: "Invalid email or password",
         success: false,
       });
@@ -375,7 +382,7 @@ const deleteUser = async (req, res) => {
 
     // update is isDeleted col
     await updateUser(
-      { isDeleted: true, isLogin: false, is_online: false, isVerified: false },
+      { isDeleted: true, isLogin: false, is_online: 0, isVerified: false },
       { where: { id: id } },
     );
 
@@ -479,6 +486,7 @@ const searchUsers = async (req, res) => {
           [Op.like]: `%${name}%`,
         },
         isDeleted: false,
+        isVerified: true,
       },
       attributes: {
         exclude: ["password"],
@@ -514,7 +522,7 @@ const sendOtp = async (req, res) => {
     }
 
     logger.info(`${req.method} ${req.url}`);
-    const { email } = value;
+    const { email, action } = value;
 
     const user = await findSingleUser({ where: { email: email } });
 
@@ -533,10 +541,24 @@ const sendOtp = async (req, res) => {
     // generate expire time
     const expiresTime = expiresIn();
 
-    await updateUser(
-      { otp: hashedOtp, expiresAt: expiresTime },
-      { where: { email: email } },
-    );
+    switch (action) {
+      case "signup":
+        await updateUser(
+          { otp: hashedOtp, expiresAt: expiresTime, otp_purpose: "signup" },
+          { where: { email: email } },
+        );
+        break;
+      case "forgot_password":
+        await updateUser(
+          {
+            otp: hashedOtp,
+            expiresAt: expiresTime,
+            otp_purpose: "forgot_password",
+          },
+          { where: { email: email } },
+        );
+        break;
+    }
 
     // send email
     await sendEmail({ email: email, otp: Otp });
@@ -564,13 +586,28 @@ const verifyOtp = async (req, res) => {
     logger.info(`${req.method} ${req.url}`);
     const { email, otp } = value;
 
-    // find for email in database
+    // find for user in database
     const user = await findSingleUser({ where: { email: email } });
 
     if (!user) {
       return res
         .status(404)
         .json({ message: "Email not found", success: false });
+    }
+
+    // check otp feilds
+    if (user.otp === null) {
+      return res
+        .status(401)
+        .json({ message: "Otp is not present", success: false });
+    }
+
+    if (user.otp_purpose === "forgot_password" && user.isVerified === false) {
+      user.otp = null;
+      user.expiresAt = null;
+      user.otp_purpose = null;
+      await user.save();
+      return res.status(400).json({ message: "Your are not verified" });
     }
 
     // comapre otp
@@ -580,13 +617,6 @@ const verifyOtp = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Otp does not match", success: false });
-    }
-
-    // check otp feilds
-    if (user.otp === null) {
-      return res
-        .status(401)
-        .json({ message: "Otp is not present", success: false });
     }
 
     if (new Date() > user.expiresAt) {
@@ -601,6 +631,7 @@ const verifyOtp = async (req, res) => {
     user.otp = null;
     user.expiresAt = null;
     user.isLogin = true;
+    user.otp_purpose = null;
     await user.save();
 
     // generate tokem
@@ -643,6 +674,15 @@ const forgotPassword = async (req, res) => {
       return res
         .status(404)
         .json({ message: "User not found", success: false });
+    }
+
+    if (user.isVerified === false) {
+      user.otp = null;
+      user.expiresAt = null;
+      await user.save();
+      return res
+        .status(400)
+        .json({ message: "User not verified", success: false });
     }
 
     // hash newPass
