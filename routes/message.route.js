@@ -6,6 +6,7 @@ const {
   pinMessage,
   deleteForAll,
   searchMessageInChat,
+  getAllStarMessages,
 } = require("../controllers/message.controller");
 const multiUpload = require("../middlewares/multiUpload.middleware");
 
@@ -16,6 +17,8 @@ router.post("/send", auth, multiUpload, sendMessage);
 
 // get messages of chat
 router.get("/:chatId", auth, getMessage);
+
+router.get("/get-star-message", auth, getAllStarMessages);
 
 router.get("/search/msg", auth, searchMessageInChat);
 

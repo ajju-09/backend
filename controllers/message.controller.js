@@ -9,6 +9,7 @@ const {
   createMessage,
   findAllMessage,
   findMessageByKey,
+  updateMessage,
 } = require("../services/messageService");
 const db = require("../models");
 
@@ -161,6 +162,7 @@ const getMessage = async (req, res) => {
       },
       include: {
         model: Users,
+        as: "sender",
         attributes: ["id", "name", "photo"],
       },
 
@@ -200,12 +202,19 @@ const pinMessage = async (req, res) => {
         .json({ message: "Your not authorized", success: false });
     }
 
-    msg.is_pin = !msg.is_pin;
+    // unpin any existing message
+    await updateMessage(
+      { is_pin: false },
+      {
+        where: { chat_id: msg.chat_id, is_pin: true },
+      },
+    );
+
+    // pin message
+    msg.is_pin = true;
     await msg.save();
 
-    res
-      .status(200)
-      .json({ message: msg.is_pin ? "Message pin" : "Message unpin" });
+    res.status(200).json({ message: "Msg pinned successfully", success: true });
   } catch (error) {
     console.log("Error in pin message controller", error.message);
     res.status(500).json({ message: "SERVER ERROR", success: false });
@@ -254,6 +263,7 @@ const deleteForAll = async (req, res) => {
     res.status(500).json({ message: "SERVER ERROR", success: false });
   }
 };
+
 // search message with in chat
 // GET /api/v1/message/search/msg
 // private access
@@ -304,10 +314,47 @@ const searchMessageInChat = async (req, res) => {
   }
 };
 
+// get all star messages
+// GET /api/v2/message/get-star-message
+// private access
+const getAllStarMessages = async (req, res) => {
+  try {
+    const starMsg = await findAllMessage({
+      include: [
+        {
+          model: db.MessageSetting,
+          as: "setting",
+          where: { is_star: true },
+          attributes: [],
+        },
+        {
+          model: Users,
+          as: "sender",
+          attributes: ["id", "name", "photo"],
+        },
+      ],
+      attributes: ["id", "text"],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.status(200).json({
+      message: "Started messages fetch successfully",
+      success: true,
+      data: starMsg,
+    });
+  } catch (error) {
+    console.log("Error in get all star messges", error.message);
+    req
+      .status(500)
+      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+  }
+};
+
 module.exports = {
   sendMessage,
   getMessage,
   pinMessage,
   deleteForAll,
   searchMessageInChat,
+  getAllStarMessages,
 };

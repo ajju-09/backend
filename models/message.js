@@ -40,6 +40,7 @@ module.exports = (sequelize, DataTypes) => {
   Message.associate = (models) => {
     Message.belongsTo(models.User, {
       foreignKey: "sender_id",
+      as: "sender",
     });
 
     Message.belongsTo(models.Chat, {
@@ -52,6 +53,7 @@ module.exports = (sequelize, DataTypes) => {
 
     Message.hasMany(models.MessageSetting, {
       foreignKey: "msg_id",
+      as: "setting",
     });
   };
 
