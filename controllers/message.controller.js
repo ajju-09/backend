@@ -160,11 +160,19 @@ const getMessage = async (req, res) => {
             `),
         ],
       },
-      include: {
-        model: Users,
-        as: "sender",
-        attributes: ["id", "name", "photo"],
-      },
+      include: [
+        {
+          model: Users,
+          as: "sender",
+          attributes: ["id", "name", "photo"],
+        },
+        {
+          model: db.MessageSetting,
+          as: "setting",
+          where: { user_id: userId },
+          attributes: ["is_star"],
+        },
+      ],
 
       order: [["createdAt", "ASC"]],
     });
@@ -319,13 +327,15 @@ const searchMessageInChat = async (req, res) => {
 // private access
 const getAllStarMessages = async (req, res) => {
   try {
+    const userId = req.id;
     const starMsg = await findAllMessage({
+      where: { delete_for_all: false },
       include: [
         {
           model: db.MessageSetting,
           as: "setting",
-          where: { is_star: true },
-          attributes: [],
+          where: { user_id: userId, is_star: true, delete_for_me: false },
+          attributes: ["chat_id"],
         },
         {
           model: Users,
