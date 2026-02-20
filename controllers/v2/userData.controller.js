@@ -15,8 +15,10 @@ const getAllMedia = async (req, res) => {
           { image_url: { [Op.like]: "%.jpg%" } },
           { image_url: { [Op.like]: "%.jpeg%" } },
           { image_url: { [Op.like]: "%.png%" } },
+          { image_url: { [Op.like]: "%.mp4%" } },
         ],
       },
+      order: [["createdAt", "DESC"]],
     });
 
     if (!allMedia) {
@@ -51,8 +53,10 @@ const getAllDocs = async (req, res) => {
           { image_url: { [Op.like]: "%.doc%" } },
           { image_url: { [Op.like]: "%.ppt%" } },
           { image_url: { [Op.like]: "%.pdf%" } },
+          { image_url: { [Op.like]: "%.mp3%" } },
         ],
       },
+      order: [["createdAt", "DESC"]],
     });
 
     if (!allDocs) {
@@ -80,8 +84,9 @@ const getAllLinks = async (req, res) => {
     const allLinks = await findAllMessage({
       where: {
         [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
-        text: { [Op.like]: "%https%" },
+        text: { [Op.like]: "%http%" },
       },
+      order: [["createdAt", "DESC"]],
     });
 
     if (!allLinks) {

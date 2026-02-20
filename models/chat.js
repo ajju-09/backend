@@ -11,7 +11,7 @@ module.exports = (sequelize, DataTypes) => {
       user_two: {
         type: DataTypes.INTEGER,
         allowNull: false,
-      },
+      }
     },
     {
       timestamps: true,

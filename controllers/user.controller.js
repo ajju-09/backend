@@ -482,9 +482,19 @@ const searchUsers = async (req, res) => {
 
     const user = await findAllUser({
       where: {
-        name: {
-          [Op.like]: `%${name}%`,
-        },
+        [Op.or]: [
+          {
+            name: {
+              [Op.like]: `%${name}%`,
+            },
+          },
+          {
+            email: {
+              [Op.like]: `%${name}%`,
+            },
+          },
+        ],
+
         isDeleted: false,
         isVerified: true,
       },

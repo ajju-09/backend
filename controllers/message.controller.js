@@ -103,9 +103,15 @@ const sendMessage = async (req, res) => {
         message: `${user.name} sent you a message`,
         chatId: chatId,
       });
-    }
 
-    await updateChat({ updatedAt: new Date() }, { where: { id: chatId } });
+      const res = await updateChat(
+        { updatedAt: new Date() },
+        { where: { id: chatId } },
+      );
+      console.log("===============================");
+      console.log(res, new Date());
+      console.log("===============================");
+    }
 
     res.status(200).json({
       message: "Message created ",

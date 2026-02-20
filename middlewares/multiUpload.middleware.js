@@ -24,6 +24,7 @@ const fileFilter = (req, file, cb) => {
     "application/msword",
     "application/vnd.ms-powerpoint",
     "video/mp4",
+    "audio/mpeg"
   ];
 
   if (allowTypes.includes(file.mimetype)) {
