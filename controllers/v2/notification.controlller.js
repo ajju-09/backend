@@ -1,4 +1,4 @@
-const { Op, Model } = require("sequelize");
+const { Op } = require("sequelize");
 const db = require("../../models");
 const { Users } = require("../../services/userServices");
 
@@ -18,6 +18,7 @@ const getAllNotification = async (req, res) => {
         as: "otheruser",
         attributes: ["id", "name", "email", "photo"],
       },
+      attributes: ["title", "message", "seen"],
       order: [["createdAt", "DESC"]],
     });
 
@@ -36,8 +37,36 @@ const getAllNotification = async (req, res) => {
     console.log("Error in get all notification", error.message);
     res
       .status(500)
-      .json({ message: "SREVRE ERROR", success: false, msg: error.message });
+      .json({ message: "SERVER ERROR", success: false, msg: error.message });
   }
 };
 
-module.exports = { getAllNotification };
+// update seen in database
+// PATCH /api/v2/notification/seen/:notiId
+// private access
+const seenNotification = async (req, res) => {
+  try {
+    const { notiId } = req.params;
+
+    if (!notiId) {
+      return res
+        .status(400)
+        .json({ message: "Notification id required", success: false });
+    }
+
+    await db.Notification.update(
+      {
+        seen: true,
+      },
+      { where: { id: notiId } },
+    );
+
+    res.status(200).json({ message: "Message seen", success: true });
+  } catch (error) {
+    console.log("Error in seen notification", error.message);
+    res
+      .status(500)
+      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+  }
+};
+module.exports = { getAllNotification, seenNotification };
