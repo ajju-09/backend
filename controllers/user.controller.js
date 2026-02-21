@@ -260,9 +260,11 @@ const getAllUser = async (req, res) => {
         id: {
           [Op.ne]: id,
         },
+        isVerified: true,
+        isDeleted: false,
       },
       attributes: {
-        exclude: ["password"],
+        exclude: ["password", "otp_purpose", "otp"],
       },
     });
 

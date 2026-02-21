@@ -1,32 +1,46 @@
 "use strict";
 
 module.exports = (sequelize, DataTypes) => {
-  const Notification = sequelize.define("Notification", {
-    sender_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
+  const Notification = sequelize.define(
+    "Notification",
+    {
+      sender_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      receiver_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      title: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      message: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      seen: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+      },
     },
-    receiver_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
+    {
+      tableName: "notifications",
     },
-    title: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    message: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    seen: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-    },
-  });
+  );
 
   Notification.associate = (models) => {
     Notification.belongsTo(models.User, {
       foreignKey: "sender_id",
+      as: "otheruser",
+      onDelete: "CASCADE",
+      onUpdate: "CASCADE",
+    });
+    Notification.belongsTo(models.User, {
+      foreignKey: "receiver_id",
+      onDelete: "CASCADE",
+      onUpdate: "CASCADE",
     });
   };
 

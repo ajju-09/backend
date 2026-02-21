@@ -55,6 +55,13 @@ const sendMessage = async (req, res) => {
       );
 
       images = uploads.map((img) => img.secure_url);
+
+      await db.Notification.create({
+        sender_id: senderId,
+        receiver_id: receiverId,
+        title: "Sent File",
+        message: `${user.name} sent you a file`,
+      });
     }
 
     if (replyTo) {
@@ -94,6 +101,7 @@ const sendMessage = async (req, res) => {
       console.log("==============================");
       console.log("receiver id", receiverId);
       console.log("==============================");
+
       io.to(receiverId.toString()).emit("new_message", {
         msg: responseMsg,
         reply_to: msg.reply_to,
@@ -104,14 +112,17 @@ const sendMessage = async (req, res) => {
         chatId: chatId,
       });
 
-      const res = await updateChat(
-        { updatedAt: new Date() },
-        { where: { id: chatId } },
-      );
-      console.log("===============================");
-      console.log(res, new Date());
-      console.log("===============================");
+      if (text !== null && text !== "") {
+        await db.Notification.create({
+          sender_id: senderId,
+          receiver_id: receiverId,
+          title: "New message",
+          message: `${user.name} sent you a new message`,
+        });
+      }
     }
+
+    await updateChat({ updatedAt: new Date() }, { where: { id: chatId } });
 
     res.status(200).json({
       message: "Message created ",
@@ -131,8 +142,16 @@ const getMessage = async (req, res) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+
+    const PageOffset = (pageNumber - 1) * pageSize;
+    console.log("============================");
+    console.log("offset", PageOffset);
+    console.log("============================");
 
     const chat = await findChatByKey(chatId);
 
@@ -180,7 +199,9 @@ const getMessage = async (req, res) => {
         },
       ],
 
-      order: [["createdAt", "ASC"]],
+      order: [["createdAt", "DESC"]],
+      limit: pageSize,
+      offset: PageOffset,
     });
 
     res.status(200).json({
