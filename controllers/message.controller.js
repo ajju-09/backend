@@ -142,16 +142,16 @@ const getMessage = async (req, res) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+    // const { page = 1, limit = 20 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
-    const pageNumber = parseInt(page);
-    const pageSize = parseInt(limit);
+    // const pageNumber = parseInt(page);
+    // const pageSize = parseInt(limit);
 
-    const PageOffset = (pageNumber - 1) * pageSize;
-    console.log("============================");
-    console.log("offset", PageOffset);
-    console.log("============================");
+    // const PageOffset = (pageNumber - 1) * pageSize;
+    // console.log("============================");
+    // console.log("offset", PageOffset);
+    // console.log("============================");
 
     const chat = await findChatByKey(chatId);
 
@@ -200,8 +200,8 @@ const getMessage = async (req, res) => {
       ],
 
       order: [["createdAt", "DESC"]],
-      limit: pageSize,
-      offset: PageOffset,
+      // limit: pageSize,
+      // offset: PageOffset,
     });
 
     res.status(200).json({
@@ -387,6 +387,66 @@ const getAllStarMessages = async (req, res) => {
   }
 };
 
+// get all star messages with in chat
+// GET /api/v1/message/get-star-message-in-chat/:chatId
+// private access
+const getAllStarMessageWithInChat = async (req, res) => {
+  try {
+    const userId = req.id;
+    const { chatId } = req.params;
+    // const { page = 1, limit = 10 } = req.query;
+
+    // const pageNumber = parseInt(page);
+    // const pageSize = parseInt(limit);
+
+    // const starOffset = (pageNumber - 1) * pageSize;
+
+    if (!chatId) {
+      return res
+        .status(400)
+        .json({ message: "Chat id required", success: false });
+    }
+
+    const starMsg = await findAllMessage({
+      where: { chat_id: chatId, delete_for_all: false },
+      include: [
+        {
+          model: db.MessageSetting,
+          as: "setting",
+          where: { user_id: userId, is_star: true, delete_for_me: false },
+          attributes: ["id", "is_star"],
+        },
+        {
+          model: Users,
+          as: "sender",
+          attributes: ["id", "name", "photo"],
+        },
+      ],
+      attributes: ["id", "text"],
+      // limit: pageSize,
+      // offset: starOffset,
+      order: [["id", "DESC"]],
+    });
+
+    if (!starMsg) {
+      return res
+        .status(400)
+        .json({ message: "There is not star message for you", success: false });
+    }
+
+    res.status(200).json({
+      message: "Fetch all star message in chat successfully",
+      success: true,
+      data: starMsg,
+    });
+  } catch (error) {
+    console.log("Error in get all star message with in chat", error.message);
+    res
+      .status(500)
+      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+  }
+};
+
 module.exports = {
   sendMessage,
   getMessage,
@@ -394,4 +454,5 @@ module.exports = {
   deleteForAll,
   searchMessageInChat,
   getAllStarMessages,
+  getAllStarMessageWithInChat,
 };
