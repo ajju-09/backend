@@ -199,7 +199,7 @@ const getMessage = async (req, res) => {
         },
       ],
 
-      order: [["createdAt", "DESC"]],
+      order: [["createdAt", "ASC"]],
       // limit: pageSize,
       // offset: PageOffset,
     });
