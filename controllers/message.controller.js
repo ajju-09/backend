@@ -331,9 +331,6 @@ const searchMessageInChat = async (req, res) => {
       where: {
         chat_id: chatId,
         delete_for_all: false,
-        text: {
-          [Op.like]: `%${text}%`,
-        },
         [Op.and]: [
           db.sequelize.literal(`
             NOT EXISTS (
@@ -345,12 +342,19 @@ const searchMessageInChat = async (req, res) => {
         ],
       },
       order: [["createdAt", "DESC"]],
-      limit: Number(limit),
     });
+
+    const filtered = msg
+      .map((msg) => {
+        const decryptedText = decryptMessage(msg.text);
+        return { ...msg.toJSON(), text: decryptedText };
+      })
+      .filter((msg) => msg.text.toLowerCase().includes(text.toLowerCase()))
+      .slice(0, Number(limit));
 
     res
       .status(200)
-      .json({ message: "search message", success: true, msg: msg });
+      .json({ message: "search message", success: true, msg: filtered });
   } catch (error) {
     next(error);
   }
@@ -379,6 +383,10 @@ const getAllStarMessages = async (req, res) => {
       ],
       attributes: ["id", "text"],
       order: [["createdAt", "DESC"]],
+    });
+
+    starMsg.forEach((item) => {
+      item.text = decryptMessage(item.text);
     });
 
     res.status(200).json({
