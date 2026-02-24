@@ -52,10 +52,7 @@ const pinChat = async (req, res) => {
       pin: chatsetting.is_pin,
     });
   } catch (error) {
-    console.log("Error in pin chat controller", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -108,10 +105,7 @@ const muteChat = async (req, res) => {
       mute: chatsetting.is_mute,
     });
   } catch (error) {
-    console.log("Error in mute chat controller", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -164,10 +158,7 @@ const blockChat = async (req, res) => {
       block: chatsetting.is_block,
     });
   } catch (error) {
-    console.log("Error in block chat controller", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -225,10 +216,7 @@ const deleteChat = async (req, res) => {
       delete: chatsetting.is_delete,
     });
   } catch (error) {
-    console.log("Error in delete chat controller", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 

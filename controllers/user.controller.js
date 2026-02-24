@@ -109,10 +109,7 @@ const register = async (req, res) => {
 
     res.status(400).json({ message: "Something went wrong", success: false });
   } catch (error) {
-    console.log("Error in register controller", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -201,8 +198,7 @@ const login = async (req, res) => {
       user: userDetail,
     });
   } catch (error) {
-    console.log("Error in login controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -270,8 +266,7 @@ const getAllUser = async (req, res) => {
 
     res.status(200).json({ message: "Fetched all user", success: true, data });
   } catch (error) {
-    console.log("Error in getall controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -359,8 +354,7 @@ const update = async (req, res) => {
         });
     }
   } catch (error) {
-    console.log("Error in update controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -393,8 +387,7 @@ const deleteUser = async (req, res) => {
       success: true,
     });
   } catch (error) {
-    console.log("Error in delete controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next();
   }
 };
 
@@ -437,8 +430,7 @@ const uploadImage = async (req, res) => {
       imageurl: imageUrl,
     });
   } catch (error) {
-    console.log("Error in upload controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -468,8 +460,7 @@ const logout = async (req, res) => {
       .status(200)
       .json({ message: "User logout successfully", success: true });
   } catch (error) {
-    console.log("Error in delete controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -515,8 +506,7 @@ const searchUsers = async (req, res) => {
 
     res.status(200).json({ success: true, data: user, limit: limit });
   } catch (error) {
-    console.log("Error in search controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -577,8 +567,7 @@ const sendOtp = async (req, res) => {
 
     res.status(200).json({ message: "Otp sent successfully", success: true });
   } catch (error) {
-    console.log("Error in send otp", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -658,8 +647,7 @@ const verifyOtp = async (req, res) => {
       token: token,
     });
   } catch (error) {
-    console.log("Error in verify otp", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -707,8 +695,7 @@ const forgotPassword = async (req, res) => {
       .status(200)
       .json({ message: "Password reset successfully", success: true });
   } catch (error) {
-    console.log("Error in forgot password", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 

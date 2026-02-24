@@ -12,6 +12,7 @@ const cors = require("cors");
 const path = require("path");
 const http = require("http");
 const { initialize } = require("./socket");
+const errorHandler = require("./middlewares/errorHandler.middleware");
 
 dotenv.config();
 const app = express();
@@ -45,6 +46,8 @@ app.use("/api/v2/messagesetting", messageSetting);
 
 app.use("/api/v2/user-data", userData);
 app.use("/api/v2/notification", notificationRouter);
+
+app.use(errorHandler);
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

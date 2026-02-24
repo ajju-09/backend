@@ -36,10 +36,7 @@ const starMessage = async (req, res) => {
       star: messagesetting.is_star,
     });
   } catch (error) {
-    console.log("Error in star message", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -65,10 +62,7 @@ const deleteMessageForMe = async (req, res) => {
     );
     res.status(200).json({ message: "Msg delete for me", success: true });
   } catch (error) {
-    console.log("Error in star message", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 

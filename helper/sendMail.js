@@ -26,6 +26,7 @@ const sendEmail = async (options) => {
     console.log("============================");
   } catch (error) {
     console.log("Email service failed", error.message);
+    next(error);
   }
 };
 

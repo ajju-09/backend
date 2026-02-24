@@ -31,10 +31,7 @@ const getAllMedia = async (req, res) => {
       .status(200)
       .json({ message: "get all media", success: true, data: allMedia });
   } catch (error) {
-    console.log("Error in get all media", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -67,10 +64,7 @@ const getAllDocs = async (req, res) => {
       .status(200)
       .json({ message: "get all docs", success: true, data: allDocs });
   } catch (error) {
-    console.log("Error in get all docs", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -97,10 +91,7 @@ const getAllLinks = async (req, res) => {
       .status(200)
       .json({ message: "get all links", success: true, data: allLinks });
   } catch (error) {
-    console.log("Error in get all links", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -142,10 +133,7 @@ const getAllMediaInChat = async (req, res) => {
       data: mediaFiles,
     });
   } catch (error) {
-    console.log("Error in get all media in chat", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -188,10 +176,7 @@ const getAllDocsInChat = async (req, res) => {
       data: docsFiles,
     });
   } catch (error) {
-    console.log("Error in get all media in chat", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -228,10 +213,7 @@ const getAllLinksInChat = async (req, res) => {
       data: links,
     });
   } catch (error) {
-    console.log("Error in get all media in chat", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 

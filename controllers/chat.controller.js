@@ -112,8 +112,7 @@ const createChat = async (req, res) => {
       },
     });
   } catch (error) {
-    console.log("Error in create chat controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR" });
+    next(error);
   }
 };
 
@@ -155,8 +154,7 @@ const getMyChats = async (req, res) => {
 
     res.status(200).json({ message: "My chats", success: true, data: chats });
   } catch (error) {
-    console.log("Error in get chat controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR" });
+    next(error);
   }
 };
 

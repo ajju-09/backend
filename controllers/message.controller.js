@@ -135,8 +135,7 @@ const sendMessage = async (req, res) => {
       msg: responseMsg,
     });
   } catch (error) {
-    console.log("Error in send message controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -215,8 +214,7 @@ const getMessage = async (req, res) => {
       messages: messages,
     });
   } catch (error) {
-    console.log("Error in receive message controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -256,8 +254,7 @@ const pinMessage = async (req, res) => {
 
     res.status(200).json({ message: "Msg pinned successfully", success: true });
   } catch (error) {
-    console.log("Error in pin message controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -299,8 +296,7 @@ const deleteForAll = async (req, res) => {
       .status(200)
       .json({ message: "Message delete for everyone", success: true });
   } catch (error) {
-    console.log("Error in delete for all message controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -349,8 +345,7 @@ const searchMessageInChat = async (req, res) => {
       .status(200)
       .json({ message: "search message", success: true, msg: msg });
   } catch (error) {
-    console.log("Error in search message controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
@@ -385,10 +380,7 @@ const getAllStarMessages = async (req, res) => {
       data: starMsg,
     });
   } catch (error) {
-    console.log("Error in get all star messges", error.message);
-    req
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -445,10 +437,7 @@ const getAllStarMessageWithInChat = async (req, res) => {
       data: starMsg,
     });
   } catch (error) {
-    console.log("Error in get all star message with in chat", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 

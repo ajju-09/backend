@@ -37,10 +37,7 @@ const getAllNotification = async (req, res) => {
       data: getAll,
     });
   } catch (error) {
-    console.log("Error in get all notification", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 
@@ -66,10 +63,7 @@ const seenNotification = async (req, res) => {
 
     res.status(200).json({ message: "Message seen", success: true });
   } catch (error) {
-    console.log("Error in seen notification", error.message);
-    res
-      .status(500)
-      .json({ message: "SERVER ERROR", success: false, msg: error.message });
+    next(error);
   }
 };
 module.exports = { getAllNotification, seenNotification };
