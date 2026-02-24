@@ -1,4 +1,7 @@
-const db = require("../models");
+const {
+  findOneMessageSetting,
+  updateMessageSetting,
+} = require("../services/messageSettingServices");
 
 // star message
 // /api/v2/messagesetting/star/:msgId
@@ -14,7 +17,7 @@ const starMessage = async (req, res) => {
         .json({ message: "Msg id required", success: false });
     }
 
-    const messagesetting = await db.MessageSetting.findOne({
+    const messagesetting = await findOneMessageSetting({
       where: { msg_id: msgId, user_id: userId },
     });
 
@@ -54,13 +57,12 @@ const deleteMessageForMe = async (req, res) => {
         .json({ message: "Msg id required", success: false });
     }
 
-    await db.MessageSetting.update(
+    await updateMessageSetting(
       { delete_for_me: true },
       {
         where: { msg_id: msgId, user_id: userId },
       },
     );
-
     res.status(200).json({ message: "Msg delete for me", success: true });
   } catch (error) {
     console.log("Error in star message", error.message);

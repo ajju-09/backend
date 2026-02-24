@@ -1,5 +1,4 @@
 const { Op } = require("sequelize");
-const db = require("../../models");
 const { Users } = require("../../services/userServices");
 const {
   findAllNotification,

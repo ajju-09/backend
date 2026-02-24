@@ -13,6 +13,10 @@ const {
 } = require("../services/messageService");
 const db = require("../models");
 const { createNotification } = require("../services/notificationServices");
+const {
+  bulkCreateMessageSetting,
+  MessageSetting,
+} = require("../services/messageSettingServices");
 
 // send message
 // POST /api/v1/message/send
@@ -87,7 +91,7 @@ const sendMessage = async (req, res) => {
       reply_to: Number(replyTo) || null,
     });
 
-    await db.MessageSetting.bulkCreate([
+    await bulkCreateMessageSetting([
       { msg_id: msg.id, chat_id: chatId, user_id: msg.sender_id },
       { msg_id: msg.id, chat_id: chatId, user_id: msg.receiver_id },
     ]);
@@ -193,7 +197,7 @@ const getMessage = async (req, res) => {
           attributes: ["id", "name", "photo"],
         },
         {
-          model: db.MessageSetting,
+          model: MessageSetting,
           as: "setting",
           where: { user_id: userId },
           attributes: ["is_star"],
@@ -360,7 +364,7 @@ const getAllStarMessages = async (req, res) => {
       where: { delete_for_all: false },
       include: [
         {
-          model: db.MessageSetting,
+          model: MessageSetting,
           as: "setting",
           where: { user_id: userId, is_star: true, delete_for_me: false },
           attributes: ["chat_id"],
@@ -412,7 +416,7 @@ const getAllStarMessageWithInChat = async (req, res) => {
       where: { chat_id: chatId, delete_for_all: false },
       include: [
         {
-          model: db.MessageSetting,
+          model: MessageSetting,
           as: "setting",
           where: { user_id: userId, is_star: true, delete_for_me: false },
           attributes: ["id", "is_star"],
