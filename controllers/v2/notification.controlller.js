@@ -1,6 +1,10 @@
 const { Op } = require("sequelize");
 const db = require("../../models");
 const { Users } = require("../../services/userServices");
+const {
+  findAllNotification,
+  updateNotification,
+} = require("../../services/notificationServices");
 
 // get all notificatio for logged in user
 // GET /api/v2/notification/get-all
@@ -9,7 +13,7 @@ const getAllNotification = async (req, res) => {
   try {
     const userId = req.id;
 
-    const getAll = await db.Notification.findAll({
+    const getAll = await findAllNotification({
       where: {
         sender_id: { [Op.ne]: userId },
       },
@@ -54,7 +58,7 @@ const seenNotification = async (req, res) => {
         .json({ message: "Notification id required", success: false });
     }
 
-    await db.Notification.update(
+    await updateNotification(
       {
         seen: true,
       },

@@ -12,6 +12,7 @@ const {
   updateMessage,
 } = require("../services/messageService");
 const db = require("../models");
+const { createNotification } = require("../services/notificationServices");
 
 // send message
 // POST /api/v1/message/send
@@ -56,7 +57,7 @@ const sendMessage = async (req, res) => {
 
       images = uploads.map((img) => img.secure_url);
 
-      await db.Notification.create({
+      await createNotification({
         sender_id: senderId,
         receiver_id: receiverId,
         title: "Sent File",
@@ -113,7 +114,7 @@ const sendMessage = async (req, res) => {
       });
 
       if (text !== null && text !== "") {
-        await db.Notification.create({
+        await createNotification({
           sender_id: senderId,
           receiver_id: receiverId,
           title: "New message",
