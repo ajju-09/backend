@@ -17,11 +17,12 @@ const {
   bulkCreateMessageSetting,
   MessageSetting,
 } = require("../services/messageSettingServices");
+const { encryptMessage, decryptMessage } = require("../helper/cipherMessage");
 
 // send message
 // POST /api/v1/message/send
 // private access
-const sendMessage = async (req, res) => {
+const sendMessage = async (req, res, next) => {
   try {
     const senderId = req.id;
     const { chatId, text, replyTo } = req.body;
@@ -81,12 +82,14 @@ const sendMessage = async (req, res) => {
       }
     }
 
+    const encryptedText = encryptMessage(text);
+
     // create new message
     const msg = await createMessage({
       sender_id: senderId,
       receiver_id: receiverId,
       chat_id: chatId,
-      text,
+      text: encryptedText,
       image_url: images.length > 0 ? JSON.stringify(images) : null,
       reply_to: Number(replyTo) || null,
     });
@@ -98,6 +101,7 @@ const sendMessage = async (req, res) => {
 
     const responseMsg = {
       ...msg.toJSON(),
+      text: decryptMessage(msg.text),
       image_url: msg.image_url ? JSON.parse(msg.image_url) : [],
     };
 
@@ -142,7 +146,7 @@ const sendMessage = async (req, res) => {
 // get messages
 // GET /api/v1/message/:chatId
 // private access
-const getMessage = async (req, res) => {
+const getMessage = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
@@ -206,6 +210,9 @@ const getMessage = async (req, res) => {
       order: [["createdAt", "ASC"]],
       // limit: pageSize,
       // offset: PageOffset,
+    });
+    messages.forEach((item) => {
+      item.text = decryptMessage(item.text);
     });
 
     res.status(200).json({
