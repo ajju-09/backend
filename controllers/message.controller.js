@@ -73,7 +73,7 @@ const sendMessage = async (req, res, next) => {
       await createNotification({
         sender_id: senderId,
         receiver_id: receiverId,
-        title: "Sent File",
+        title: encryptMessage("Sent File"),
         message: `${user.name} sent you a file`,
         seen: false,
       });

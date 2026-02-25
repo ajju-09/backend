@@ -17,9 +17,21 @@ const createNotification = async (query) => {
   return data;
 };
 
+const findNotificationByKey = async (key) => {
+  const data = await Notification.findByPk(key);
+  return data;
+};
+
+const destroyNotification = async (query) => {
+  const data = await Notification.destroy(query);
+  return data;
+};
+
 module.exports = {
   findAllNotification,
   updateNotification,
   createNotification,
   Notification,
+  findNotificationByKey,
+  destroyNotification,
 };

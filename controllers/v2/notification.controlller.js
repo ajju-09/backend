@@ -2,6 +2,8 @@ const { Users } = require("../../services/userServices");
 const {
   findAllNotification,
   updateNotification,
+  findNotificationByKey,
+  destroyNotification,
 } = require("../../services/notificationServices");
 const { decryptMessage } = require("../../helper/cipherMessage");
 
@@ -69,4 +71,41 @@ const seenNotification = async (req, res, next) => {
     next(error);
   }
 };
-module.exports = { getAllNotification, seenNotification };
+
+// delete notification
+// DELETE /api/v2/notification/delete/:notiId
+const deleteNotification = async (req, res, next) => {
+  try {
+    const userId = req.id;
+    const { notiId } = req.params;
+
+    if (!notiId) {
+      return res
+        .status(400)
+        .json({ message: "Notification id required", success: false });
+    }
+
+    const noti = await findNotificationByKey(notiId);
+
+    if (!noti) {
+      return res
+        .status(404)
+        .json({ message: "Notification not found", success: false });
+    }
+
+    if (userId !== noti.receiver_id) {
+      return res
+        .status(401)
+        .json({ message: "Not Authorized", success: false });
+    }
+
+    await destroyNotification({ where: { id: notiId, receiver_id: userId } });
+
+    res
+      .status(200)
+      .json({ message: "Notification deleted successfully", success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+module.exports = { getAllNotification, seenNotification, deleteNotification };
