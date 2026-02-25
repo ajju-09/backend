@@ -17,7 +17,7 @@ const getAllNotification = async (req, res, next) => {
       include: {
         model: Users,
         as: "otheruser",
-        attributes: ["id", "name", "email", "photo"],
+        attributes: ["id", "photo"],
       },
       attributes: ["id", "title", "message", "seen"],
       order: [["createdAt", "DESC"]],

@@ -1,4 +1,4 @@
-const { Op, where } = require("sequelize");
+const { Op } = require("sequelize");
 const logger = require("../helper/logger");
 const { findChatByKey, updateChat } = require("../services/chatServices");
 const { Users, findUserByKey } = require("../services/userServices");
@@ -24,6 +24,7 @@ const { encryptMessage, decryptMessage } = require("../helper/cipherMessage");
 const {
   ChatSetting,
   updateChatSetting,
+  findOneChatSetting,
 } = require("../services/chatSettingServices");
 
 // send message
@@ -108,7 +109,7 @@ const sendMessage = async (req, res, next) => {
     ]);
 
     if (msg) {
-      const count = await ChatSetting.increment("unread_count", {
+      await ChatSetting.increment("unread_count", {
         by: 1,
         where: {
           chat_id: chatId,
@@ -116,8 +117,13 @@ const sendMessage = async (req, res, next) => {
         },
       });
 
+      const updatedCount = await findOneChatSetting({
+        where: { chat_id: chatId, user_id: receiverId },
+      });
+
       io.to(receiverId.toString()).emit("count", {
-        count: count.unread_count,
+        chatId: chat.id,
+        count: updatedCount.unread_count,
       });
     }
 
@@ -148,7 +154,7 @@ const sendMessage = async (req, res, next) => {
           sender_id: senderId,
           receiver_id: receiverId,
           title: msg.text,
-          message: `${user.name} sent you a new message`,
+          message: `You have a new message from ${user.name}`,
           seen: false,
         });
       }
@@ -173,16 +179,13 @@ const getMessage = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
     const pageNumber = parseInt(page);
     const pageSize = parseInt(limit);
 
     const PageOffset = (pageNumber - 1) * pageSize;
-    console.log("============================");
-    console.log("offset", PageOffset);
-    console.log("============================");
 
     const chat = await findChatByKey(chatId);
 
@@ -204,20 +207,20 @@ const getMessage = async (req, res, next) => {
       {
         where: {
           chat_id: chatId,
-          [Op.or]: [{ user_id: chat.user_one }, { user_id: chat.user_two }],
+          user_id: userId,
         },
       },
     );
 
     await updateNotification(
-      { seen: false },
+      { seen: true },
       {
         where: { receiver_id: userId },
       },
     );
 
     // using chat id fetch all messages
-    const messages = await findAllMessage({
+    const { count, rows } = await db.Message.findAndCountAll({
       where: {
         chat_id: chatId,
         delete_for_all: false,
@@ -231,8 +234,6 @@ const getMessage = async (req, res, next) => {
                 AND delete_for_me = true
               )
             `),
-        ],
-        [Op.and]: [
           db.sequelize.literal(`
               NOT EXISTS (
                 SELECT 1 FROM chat_settings
@@ -257,18 +258,22 @@ const getMessage = async (req, res, next) => {
         },
       ],
 
-      order: [["createdAt", "ASC"]],
+      order: [["createdAt", "DESC"]],
       limit: pageSize,
       offset: PageOffset,
     });
-    messages.forEach((item) => {
+
+    rows.forEach((item) => {
       item.text = decryptMessage(item.text);
     });
 
     res.status(200).json({
       message: "Fetched all messages ",
       success: true,
-      messages: messages,
+      messages: rows.reverse(),
+      totalMessages: count,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(count / pageSize),
     });
   } catch (error) {
     next(error);
@@ -395,6 +400,7 @@ const searchMessageInChat = async (req, res, next) => {
     });
 
     const filtered = msg
+      .filter((msg) => msg.text)
       .map((msg) => {
         const decryptedText = decryptMessage(msg.text);
         return { ...msg.toJSON(), text: decryptedText };
