@@ -12,6 +12,7 @@ const {
   BulkCreateChatSetting,
   ChatSetting,
 } = require("../services/chatSettingServices");
+const { decryptMessage } = require("../helper/cipherMessage");
 
 // create chat
 // POST /api/v1/chat/create
@@ -130,12 +131,18 @@ const getMyChats = async (req, res, next) => {
       where: {
         [Op.or]: [{ user_one: userId }, { user_two: userId }],
       },
-      // attributes: ["id"],
       include: [
         {
           model: ChatSetting,
           where: { user_id: userId, is_delete: false },
-          attributes: ["user_id", "is_pin", "is_mute", "is_block", "unread_count","is_delete"],
+          attributes: [
+            "user_id",
+            "is_pin",
+            "is_mute",
+            "is_block",
+            "unread_count",
+            "is_delete",
+          ],
         },
         {
           model: Users,
@@ -149,10 +156,17 @@ const getMyChats = async (req, res, next) => {
         },
       ],
       limit: Number(limit),
-      order: [["updatedAt", "DESC"]],
+      order: [["last_message_time", "DESC"]],
     });
 
-    res.status(200).json({ message: "My chats", success: true, data: chats });
+    const decryptedChat = chats.map((item) => {
+      const decryptedText = decryptMessage(item.last_message || "");
+      return { ...item.toJSON(), last_message: decryptedText };
+    });
+
+    res
+      .status(200)
+      .json({ message: "My chats", success: true, data: decryptedChat });
   } catch (error) {
     next(error);
   }

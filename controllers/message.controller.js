@@ -1,4 +1,4 @@
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const logger = require("../helper/logger");
 const { findChatByKey, updateChat } = require("../services/chatServices");
 const { Users, findUserByKey } = require("../services/userServices");
@@ -102,6 +102,11 @@ const sendMessage = async (req, res, next) => {
       image_url: images.length > 0 ? JSON.stringify(images) : null,
       reply_to: Number(replyTo) || null,
     });
+
+    await updateChat(
+      { last_message: msg.text, last_message_time: new Date() },
+      { where: { id: chatId } },
+    );
 
     await bulkCreateMessageSetting([
       { msg_id: msg.id, chat_id: chatId, user_id: msg.sender_id },
