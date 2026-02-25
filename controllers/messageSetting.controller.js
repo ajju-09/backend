@@ -6,7 +6,7 @@ const {
 // star message
 // /api/v2/messagesetting/star/:msgId
 // private access
-const starMessage = async (req, res) => {
+const starMessage = async (req, res, next) => {
   try {
     const userId = req.id;
     const { msgId } = req.params;
@@ -43,7 +43,7 @@ const starMessage = async (req, res) => {
 // delete message for me
 // /api/v2/messagesetting/delete-for-me/:msgId
 // private access
-const deleteMessageForMe = async (req, res) => {
+const deleteMessageForMe = async (req, res, next) => {
   try {
     const userId = req.id;
     const { msgId } = req.params;

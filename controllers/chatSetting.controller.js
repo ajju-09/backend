@@ -6,7 +6,7 @@ const { updateMessage } = require("../services/messageService");
 // pin chat
 // PATCH /api/v2/chatsetting/pin/:chatId
 // private access
-const pinChat = async (req, res) => {
+const pinChat = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
@@ -59,7 +59,7 @@ const pinChat = async (req, res) => {
 // mute chat
 // PATCH /api/v2/chatsetting/mute/:chatId
 // private access
-const muteChat = async (req, res) => {
+const muteChat = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
@@ -112,7 +112,7 @@ const muteChat = async (req, res) => {
 // block chat
 // PATCH /api/v2/chatsetting/block/:chatId
 // private access
-const blockChat = async (req, res) => {
+const blockChat = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
@@ -165,7 +165,7 @@ const blockChat = async (req, res) => {
 // delete chat
 // PATCH /api/v2/chatsetting/delete/:chatId
 // private access
-const deleteChat = async (req, res) => {
+const deleteChat = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;

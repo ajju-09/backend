@@ -25,7 +25,7 @@ const { generateOtp, expiresIn } = require("../helper/generateOtp");
 // register
 // POST /api/v1/users/register
 // access public
-const register = async (req, res) => {
+const register = async (req, res, next) => {
   try {
     // name, email, phone, password, photo in req body
     // validate
@@ -116,7 +116,7 @@ const register = async (req, res) => {
 // login
 // POST /api/v1/users/login
 // access public
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
     // email, password in req body
     // validate using email, password
@@ -205,7 +205,7 @@ const login = async (req, res) => {
 // profile
 // GET /api/v1/users/profile/:id
 // private access
-const profile = async (req, res) => {
+const profile = async (req, res, next) => {
   try {
     // take use id from token
     // const userid = req.id;
@@ -241,13 +241,12 @@ const profile = async (req, res) => {
       .status(200)
       .json({ message: "User profile", success: true, data: data });
   } catch (error) {
-    console.log("Error in profile controller", error.message);
-    res.status(500).json({ message: "SERVER ERROR", success: false });
+    next(error);
   }
 };
 
 // GET /api/v1/users/getall
-const getAllUser = async (req, res) => {
+const getAllUser = async (req, res, next) => {
   try {
     const id = req.id;
     logger.info(`${req.method} ${req.url}`);
@@ -273,7 +272,7 @@ const getAllUser = async (req, res) => {
 // update
 // PUT /api/v1/users/update
 // private access
-const update = async (req, res) => {
+const update = async (req, res, next) => {
   try {
     // grab user id
     const id = req.id;
@@ -361,7 +360,7 @@ const update = async (req, res) => {
 // delete
 // DELETE /api/v1/users/delete
 // private access (soft delete)
-const deleteUser = async (req, res) => {
+const deleteUser = async (req, res, next) => {
   try {
     const id = req.id;
 
@@ -392,7 +391,7 @@ const deleteUser = async (req, res) => {
 };
 
 // POST /api/v1/users/upload
-const uploadImage = async (req, res) => {
+const uploadImage = async (req, res, next) => {
   try {
     logger.info(`${req.method} ${req.url}`);
 
@@ -435,7 +434,7 @@ const uploadImage = async (req, res) => {
 };
 
 // GET /api/v1/users/logout
-const logout = async (req, res) => {
+const logout = async (req, res, next) => {
   try {
     // find user
     const id = req.id;
@@ -465,7 +464,7 @@ const logout = async (req, res) => {
 };
 
 // GET /api/v1/users/search
-const searchUsers = async (req, res) => {
+const searchUsers = async (req, res, next) => {
   try {
     const { name, limit = "4" } = req.query;
 
@@ -511,7 +510,7 @@ const searchUsers = async (req, res) => {
 };
 
 // POST /api/v1/users/send-otp
-const sendOtp = async (req, res) => {
+const sendOtp = async (req, res, next) => {
   try {
     const { error, value } = sendOtpSchema.validate(req.body);
 
@@ -572,7 +571,7 @@ const sendOtp = async (req, res) => {
 };
 
 // POST /api/v1/users/verify-otp
-const verifyOtp = async (req, res) => {
+const verifyOtp = async (req, res, next) => {
   try {
     const { value, error } = verifyOtpSchema.validate(req.body);
 
@@ -652,7 +651,7 @@ const verifyOtp = async (req, res) => {
 };
 
 // POST /api/v1/users/forgot-password
-const forgotPassword = async (req, res) => {
+const forgotPassword = async (req, res, next) => {
   try {
     // const { email, newPass } = req.body;
     const { error, value } = forgotPasswordSchema.validate(req.body);

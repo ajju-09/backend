@@ -67,6 +67,7 @@ const sendMessage = async (req, res, next) => {
         receiver_id: receiverId,
         title: "Sent File",
         message: `${user.name} sent you a file`,
+        seen: false,
       });
     }
 
@@ -125,8 +126,9 @@ const sendMessage = async (req, res, next) => {
         await createNotification({
           sender_id: senderId,
           receiver_id: receiverId,
-          title: "New message",
+          title: msg.text,
           message: `${user.name} sent you a new message`,
+          seen: false,
         });
       }
     }
@@ -192,6 +194,16 @@ const getMessage = async (req, res, next) => {
               )
             `),
         ],
+        [Op.and]: [
+          db.sequelize.literal(`
+              NOT EXISTS (
+                SELECT 1 FROM chat_settings
+                WHERE chat_id = ${chatId}
+                AND user_id = ${userId}
+                AND is_block = true
+              )
+            `),
+        ],
       },
       include: [
         {
@@ -228,7 +240,7 @@ const getMessage = async (req, res, next) => {
 // pin message
 // PATCH /api/v1/message/pin/:msgId
 // private access
-const pinMessage = async (req, res) => {
+const pinMessage = async (req, res, next) => {
   try {
     const userId = req.id;
     const { msgId } = req.params;
@@ -268,7 +280,7 @@ const pinMessage = async (req, res) => {
 // delete message for all
 // DELETE /api/v1/message/delete/all/:msgId
 // private access
-const deleteForAll = async (req, res) => {
+const deleteForAll = async (req, res, next) => {
   try {
     const userId = req.id;
     const { msgId } = req.params;
@@ -310,7 +322,7 @@ const deleteForAll = async (req, res) => {
 // search message with in chat
 // GET /api/v1/message/search/msg
 // private access
-const searchMessageInChat = async (req, res) => {
+const searchMessageInChat = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId, text, limit = 10 } = req.query;
@@ -363,7 +375,7 @@ const searchMessageInChat = async (req, res) => {
 // get all star messages
 // GET /api/v2/message/get-star-message
 // private access
-const getAllStarMessages = async (req, res) => {
+const getAllStarMessages = async (req, res, next) => {
   try {
     const userId = req.id;
     const starMsg = await findAllMessage({
@@ -402,7 +414,7 @@ const getAllStarMessages = async (req, res) => {
 // get all star messages with in chat
 // GET /api/v1/message/get-star-message-in-chat/:chatId
 // private access
-const getAllStarMessageWithInChat = async (req, res) => {
+const getAllStarMessageWithInChat = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
@@ -417,6 +429,14 @@ const getAllStarMessageWithInChat = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Chat id required", success: false });
+    }
+
+    const chat = await findChatByKey(chatId);
+
+    if (!chat) {
+      return res
+        .status(404)
+        .json({ message: "chat not found", success: false });
     }
 
     const starMsg = await findAllMessage({
@@ -438,6 +458,10 @@ const getAllStarMessageWithInChat = async (req, res) => {
       // limit: pageSize,
       // offset: starOffset,
       order: [["id", "DESC"]],
+    });
+
+    starMsg.forEach((msg) => {
+      msg.text = decryptMessage(msg.text);
     });
 
     if (!starMsg) {

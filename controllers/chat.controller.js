@@ -16,7 +16,7 @@ const {
 // create chat
 // POST /api/v1/chat/create
 // private access
-const createChat = async (req, res) => {
+const createChat = async (req, res, next) => {
   try {
     const senderId = req.id;
     const { receiverId } = req.body;
@@ -119,7 +119,7 @@ const createChat = async (req, res) => {
 // get all my chats
 // GET /api/v1/chat/my-chats
 // private access
-const getMyChats = async (req, res) => {
+const getMyChats = async (req, res, next) => {
   try {
     const userId = req.id;
     const { limit = 10 } = req.params;

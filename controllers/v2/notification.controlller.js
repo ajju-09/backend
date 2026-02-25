@@ -1,27 +1,25 @@
-const { Op } = require("sequelize");
 const { Users } = require("../../services/userServices");
 const {
   findAllNotification,
   updateNotification,
 } = require("../../services/notificationServices");
+const { decryptMessage } = require("../../helper/cipherMessage");
 
 // get all notificatio for logged in user
 // GET /api/v2/notification/get-all
 // pricate access
-const getAllNotification = async (req, res) => {
+const getAllNotification = async (req, res, next) => {
   try {
     const userId = req.id;
 
     const getAll = await findAllNotification({
-      where: {
-        sender_id: { [Op.ne]: userId },
-      },
+      where: { receiver_id: userId },
       include: {
         model: Users,
         as: "otheruser",
         attributes: ["id", "name", "email", "photo"],
       },
-      attributes: ["title", "message", "seen"],
+      attributes: ["id", "title", "message", "seen"],
       order: [["createdAt", "DESC"]],
     });
 
@@ -31,10 +29,15 @@ const getAllNotification = async (req, res) => {
         .json({ message: "There is no message for you", success: false });
     }
 
+    const decryptedData = getAll.map((item) => {
+      const plainText = decryptMessage(item.title);
+      return { ...item.toJSON(), title: plainText };
+    });
+
     res.status(200).json({
       message: "Featch all notifications successfully",
       success: true,
-      data: getAll,
+      data: decryptedData,
     });
   } catch (error) {
     next(error);
@@ -44,7 +47,7 @@ const getAllNotification = async (req, res) => {
 // update seen in database
 // PATCH /api/v2/notification/seen/:notiId
 // private access
-const seenNotification = async (req, res) => {
+const seenNotification = async (req, res, next) => {
   try {
     const { notiId } = req.params;
 
