@@ -21,6 +21,10 @@ module.exports = (sequelize, DataTypes) => {
       is_block: {
         type: DataTypes.BOOLEAN,
       },
+      unread_count: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+      },
       is_delete: {
         type: DataTypes.BOOLEAN,
       },

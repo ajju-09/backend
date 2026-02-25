@@ -1,4 +1,4 @@
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const logger = require("../helper/logger");
 const { findChatByKey, updateChat } = require("../services/chatServices");
 const { Users, findUserByKey } = require("../services/userServices");
@@ -12,12 +12,19 @@ const {
   updateMessage,
 } = require("../services/messageService");
 const db = require("../models");
-const { createNotification } = require("../services/notificationServices");
+const {
+  createNotification,
+  updateNotification,
+} = require("../services/notificationServices");
 const {
   bulkCreateMessageSetting,
   MessageSetting,
 } = require("../services/messageSettingServices");
 const { encryptMessage, decryptMessage } = require("../helper/cipherMessage");
+const {
+  ChatSetting,
+  updateChatSetting,
+} = require("../services/chatSettingServices");
 
 // send message
 // POST /api/v1/message/send
@@ -100,6 +107,20 @@ const sendMessage = async (req, res, next) => {
       { msg_id: msg.id, chat_id: chatId, user_id: msg.receiver_id },
     ]);
 
+    if (msg) {
+      const count = await ChatSetting.increment("unread_count", {
+        by: 1,
+        where: {
+          chat_id: chatId,
+          user_id: receiverId,
+        },
+      });
+
+      io.to(receiverId.toString()).emit("count", {
+        count: count.unread_count,
+      });
+    }
+
     const responseMsg = {
       ...msg.toJSON(),
       text: decryptMessage(msg.text),
@@ -152,16 +173,16 @@ const getMessage = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
-    // const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
-    // const pageNumber = parseInt(page);
-    // const pageSize = parseInt(limit);
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
 
-    // const PageOffset = (pageNumber - 1) * pageSize;
-    // console.log("============================");
-    // console.log("offset", PageOffset);
-    // console.log("============================");
+    const PageOffset = (pageNumber - 1) * pageSize;
+    console.log("============================");
+    console.log("offset", PageOffset);
+    console.log("============================");
 
     const chat = await findChatByKey(chatId);
 
@@ -177,6 +198,23 @@ const getMessage = async (req, res, next) => {
         .status(403)
         .json({ message: "User not Authorized", success: false });
     }
+
+    await updateChatSetting(
+      { unread_count: 0 },
+      {
+        where: {
+          chat_id: chatId,
+          [Op.or]: [{ user_id: chat.user_one }, { user_id: chat.user_two }],
+        },
+      },
+    );
+
+    await updateNotification(
+      { seen: false },
+      {
+        where: { receiver_id: userId },
+      },
+    );
 
     // using chat id fetch all messages
     const messages = await findAllMessage({
@@ -220,8 +258,8 @@ const getMessage = async (req, res, next) => {
       ],
 
       order: [["createdAt", "ASC"]],
-      // limit: pageSize,
-      // offset: PageOffset,
+      limit: pageSize,
+      offset: PageOffset,
     });
     messages.forEach((item) => {
       item.text = decryptMessage(item.text);
