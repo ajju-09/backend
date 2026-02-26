@@ -67,6 +67,7 @@ const createChat = async (req, res, next) => {
         { is_delete: false },
         { where: { chat_id: existingChat.id, user_id: senderId } },
       );
+
       // find chat
       const updatedChat = await findOneChat({
         where: {
@@ -131,6 +132,16 @@ const getMyChats = async (req, res, next) => {
       where: {
         [Op.or]: [{ user_one: userId }, { user_two: userId }],
       },
+      // attributes: {
+      //   include: [
+      //     [
+      //       db.sequelize.literal(
+      //         `(SELECT text FROM messages m where m.chat_id = \`Chat\`.id order by createdAt DESC LIMIT 1)`,
+      //       ),
+      //       "llll",
+      //     ],
+      //   ],
+      // },
       include: [
         {
           model: ChatSetting,

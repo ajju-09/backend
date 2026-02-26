@@ -15,9 +15,9 @@ const encryptMessage = (text) => {
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
 
-//   console.log("============================");
-//   console.log("Encrypting message.....");
-//   console.log("============================");
+  //   console.log("============================");
+  //   console.log("Encrypting message.....");
+  //   console.log("============================");
 
   return iv.toString("hex") + ":" + encrypted;
 };
@@ -34,9 +34,9 @@ const decryptMessage = (encryptedText) => {
 
   decrypted += decipher.final("utf8");
 
-//   console.log("============================");
-//   console.log("Decrypting message.....");
-//   console.log("============================");
+  //   console.log("============================");
+  //   console.log("Decrypting message.....");
+  //   console.log("============================");
 
   return decrypted;
 };

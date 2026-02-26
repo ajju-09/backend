@@ -10,6 +10,7 @@ const {
   findAllMessage,
   findMessageByKey,
   updateMessage,
+  Message,
 } = require("../services/messageService");
 const db = require("../models");
 const {
@@ -291,9 +292,24 @@ const getMessage = async (req, res, next) => {
 const pinMessage = async (req, res, next) => {
   try {
     const userId = req.id;
+    const { chatId } = req.body;
     const { msgId } = req.params;
 
     logger.info(`${req.method} ${req.url}`);
+
+    if (!chatId) {
+      return res
+        .status(400)
+        .json({ message: "Chat id required", success: false });
+    }
+
+    const chat = await findChatByKey(chatId);
+
+    if (!chat) {
+      return res
+        .status(404)
+        .json({ message: "Chat not found", success: false });
+    }
 
     const msg = await findMessageByKey(msgId);
 
@@ -307,15 +323,28 @@ const pinMessage = async (req, res, next) => {
         .json({ message: "Your not authorized", success: false });
     }
 
-    // unpin any existing message
-    await updateMessage(
-      { is_pin: false },
-      {
-        where: { chat_id: msg.chat_id, is_pin: true },
-      },
-    );
+    if (msg.is_pin) {
+      msg.is_pin = false;
+      await msg.save();
 
-    // pin message
+      return res
+        .status(200)
+        .json({ message: "Message unpin successfully", success: true });
+    }
+
+    const pinMsg = await findAllMessage({
+      where: {
+        chat_id: chatId,
+        is_pin: true,
+      },
+      order: [["id", "ASC"]],
+      limit: 3,
+    });
+
+    if (pinMsg.length >= 3) {
+      await pinMsg[0].update({ is_pin: false });
+    }
+
     msg.is_pin = true;
     await msg.save();
 
