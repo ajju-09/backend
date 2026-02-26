@@ -2,13 +2,15 @@ const { Op } = require("sequelize");
 const { findAllMessage } = require("../../services/messageService");
 const { decryptMessage } = require("../../helper/cipherMessage");
 const { findChatByKey } = require("../../services/chatServices");
-
+const logger = require("../../helper/logger");
 // get all media
 // GET /api/v2/user-data/get-media
 // private access
 const getAllMedia = async (req, res, next) => {
   try {
     const userId = req.id;
+
+    logger.info(`${req.method} ${req.url}`);
 
     const allMedia = await findAllMessage({
       where: {
@@ -44,6 +46,8 @@ const getAllDocs = async (req, res, next) => {
   try {
     const userId = req.id;
 
+    logger.info(`${req.method} ${req.url}`);
+
     const allDocs = await findAllMessage({
       where: {
         [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
@@ -76,6 +80,8 @@ const getAllDocs = async (req, res, next) => {
 const getAllLinks = async (req, res, next) => {
   try {
     const userId = req.id;
+
+    logger.info(`${req.method} ${req.url}`);
 
     const msg = await findAllMessage({
       where: {
@@ -118,6 +124,8 @@ const getAllLinks = async (req, res, next) => {
 const getAllMediaInChat = async (req, res, next) => {
   try {
     const { chatId } = req.params;
+
+    logger.info(`${req.method} ${req.url}`);
 
     if (!chatId) {
       return res
@@ -170,6 +178,8 @@ const getAllDocsInChat = async (req, res, next) => {
   try {
     const { chatId } = req.params;
 
+    logger.info(`${req.method} ${req.url}`);
+
     if (!chatId) {
       return res
         .status(400)
@@ -221,6 +231,8 @@ const getAllDocsInChat = async (req, res, next) => {
 const getAllLinksInChat = async (req, res, next) => {
   try {
     const { chatId } = req.params;
+
+    logger.info(`${req.method} ${req.url}`);
 
     if (!chatId) {
       return res

@@ -6,6 +6,7 @@ const {
   destroyNotification,
 } = require("../../services/notificationServices");
 const { decryptMessage } = require("../../helper/cipherMessage");
+const logger = require("../../helper/logger");
 
 // get all notificatio for logged in user
 // GET /api/v2/notification/get-all
@@ -13,6 +14,8 @@ const { decryptMessage } = require("../../helper/cipherMessage");
 const getAllNotification = async (req, res, next) => {
   try {
     const userId = req.id;
+
+    logger.info(`${req.method} ${req.url}`);
 
     const getAll = await findAllNotification({
       where: { receiver_id: userId },
@@ -53,6 +56,8 @@ const seenNotification = async (req, res, next) => {
   try {
     const { notiId } = req.params;
 
+    logger.info(`${req.method} ${req.url}`);
+
     if (!notiId) {
       return res
         .status(400)
@@ -77,7 +82,10 @@ const seenNotification = async (req, res, next) => {
 const deleteNotification = async (req, res, next) => {
   try {
     const userId = req.id;
+
     const { notiId } = req.params;
+
+    logger.info(`${req.method} ${req.url}`);
 
     if (!notiId) {
       return res

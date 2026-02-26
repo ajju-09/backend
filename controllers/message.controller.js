@@ -1,10 +1,6 @@
 const { Op, where } = require("sequelize");
 const logger = require("../helper/logger");
-const {
-  findChatByKey,
-  updateChat,
-  findOneChat,
-} = require("../services/chatServices");
+const { findChatByKey, updateChat } = require("../services/chatServices");
 const { Users, findUserByKey } = require("../services/userServices");
 const { getIo } = require("../socket");
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
@@ -14,7 +10,6 @@ const {
   findAllMessage,
   findMessageByKey,
   updateMessage,
-  Message,
 } = require("../services/messageService");
 const db = require("../models");
 const {
@@ -192,6 +187,7 @@ const getMessage = async (req, res, next) => {
     const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
+
     const pageNumber = parseInt(page);
     const pageSize = parseInt(limit);
 
@@ -367,6 +363,8 @@ const deleteForAll = async (req, res, next) => {
     const { msgId } = req.params;
     const io = getIo();
 
+    logger.info(`${req.method} ${req.url}`);
+
     const msg = await findMessageByKey(msgId);
 
     if (!msg) {
@@ -460,6 +458,9 @@ const searchMessageInChat = async (req, res, next) => {
 const getAllStarMessages = async (req, res, next) => {
   try {
     const userId = req.id;
+
+    logger.info(`${req.method} ${req.url}`);
+
     const starMsg = await findAllMessage({
       where: { delete_for_all: false },
       include: [
@@ -506,6 +507,8 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
     // const pageSize = parseInt(limit);
 
     // const starOffset = (pageNumber - 1) * pageSize;
+
+    logger.info(`${req.method} ${req.url}`);
 
     if (!chatId) {
       return res
@@ -571,6 +574,8 @@ const editMessage = async (req, res, next) => {
     const { text } = req.body;
     const { chatId, msgId } = req.params;
 
+    logger.info(`${req.method} ${req.url}`);
+
     if (!msgId && !chatId) {
       return res
         .status(400)
@@ -590,22 +595,36 @@ const editMessage = async (req, res, next) => {
       return res.status(404).json({ message: "Msg not found", success: false });
     }
 
-    console.log("user id", userId);
-    console.log("user id", msg.sender_id);
     if (userId !== msg.sender_id) {
       return res
         .status(401)
         .json({ message: "Not Authorized", success: false });
     }
 
-    await updateMessage(
+    const updatedMsg = await updateMessage(
       { text: encryptMessage(text) },
       { where: { id: msgId, sender_id: userId, chat_id: chatId } },
     );
 
-    res
-      .status(200)
-      .json({ message: "Message updated successfully", success: true });
+    if (updatedMsg.length > 0) {
+      const updatedMessage = await findOneMessage({
+        where: {
+          id: msgId,
+          chat_id: chatId,
+        },
+      });
+
+      return res.status(200).json({
+        message: "Message updated successfully",
+        success: true,
+        data: {
+          id: updatedMessage.id,
+          text: decryptMessage(updatedMessage.text),
+        },
+      });
+    }
+
+    res.status(400).json({ message: "Something went wrong", success: false });
   } catch (error) {
     next(error);
   }

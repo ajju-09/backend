@@ -4,3 +4,4 @@ migrations
 seeders
 profileimage
 app.log
+error.log

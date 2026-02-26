@@ -1,3 +1,4 @@
+const logger = require("../helper/logger");
 const {
   findOneMessageSetting,
   updateMessageSetting,
@@ -10,6 +11,8 @@ const starMessage = async (req, res, next) => {
   try {
     const userId = req.id;
     const { msgId } = req.params;
+
+    logger.info(`${req.method} ${req.url}`);
 
     if (!msgId) {
       return res
@@ -47,6 +50,8 @@ const deleteMessageForMe = async (req, res, next) => {
   try {
     const userId = req.id;
     const { msgId } = req.params;
+
+    logger.info(`${req.method} ${req.url}`);
 
     if (!msgId) {
       return res
