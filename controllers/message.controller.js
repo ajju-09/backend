@@ -1,6 +1,10 @@
 const { Op, where } = require("sequelize");
 const logger = require("../helper/logger");
-const { findChatByKey, updateChat } = require("../services/chatServices");
+const {
+  findChatByKey,
+  updateChat,
+  findOneChat,
+} = require("../services/chatServices");
 const { Users, findUserByKey } = require("../services/userServices");
 const { getIo } = require("../socket");
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
@@ -558,6 +562,55 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
   }
 };
 
+// edit message text
+// PATCH /api/v1/message/chat/:chatId/edit-message/:msgId
+// private access
+const editMessage = async (req, res, next) => {
+  try {
+    const userId = req.id;
+    const { text } = req.body;
+    const { chatId, msgId } = req.params;
+
+    if (!msgId && !chatId) {
+      return res
+        .status(400)
+        .json({ message: "Chat and Message Id required", success: false });
+    }
+
+    const chat = await findChatByKey(chatId);
+    const msg = await findMessageByKey(msgId);
+
+    if (!chat) {
+      return res
+        .status(404)
+        .json({ message: "Chat not found", success: false });
+    }
+
+    if (!msg) {
+      return res.status(404).json({ message: "Msg not found", success: false });
+    }
+
+    console.log("user id", userId);
+    console.log("user id", msg.sender_id);
+    if (userId !== msg.sender_id) {
+      return res
+        .status(401)
+        .json({ message: "Not Authorized", success: false });
+    }
+
+    await updateMessage(
+      { text: encryptMessage(text) },
+      { where: { id: msgId, sender_id: userId, chat_id: chatId } },
+    );
+
+    res
+      .status(200)
+      .json({ message: "Message updated successfully", success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   sendMessage,
   getMessage,
@@ -566,4 +619,5 @@ module.exports = {
   searchMessageInChat,
   getAllStarMessages,
   getAllStarMessageWithInChat,
+  editMessage,
 };

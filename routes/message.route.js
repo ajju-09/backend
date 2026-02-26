@@ -8,6 +8,7 @@ const {
   searchMessageInChat,
   getAllStarMessages,
   getAllStarMessageWithInChat,
+  editMessage,
 } = require("../controllers/message.controller");
 const multiUpload = require("../middlewares/multiUpload.middleware");
 
@@ -34,5 +35,7 @@ router.patch("/pin/:msgId", auth, pinMessage);
 
 // delete msg for all
 router.patch("/delete/all/:msgId", auth, deleteForAll);
+
+router.patch("/chat/:chatId/edit-message/:msgId", auth, editMessage);
 
 module.exports = router;
