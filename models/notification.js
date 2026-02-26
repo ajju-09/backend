@@ -12,6 +12,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      chat_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
       title: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -41,6 +45,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "receiver_id",
       onDelete: "CASCADE",
       onUpdate: "CASCADE",
+    });
+    Notification.belongsTo(models.Chat, {
+      foreignKey: "chat_id",
+      onUpdate: "CASCADE",
+      onDelete: "CASCADE",
     });
   };
 

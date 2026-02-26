@@ -7,6 +7,7 @@ const {
 } = require("../../services/notificationServices");
 const { decryptMessage } = require("../../helper/cipherMessage");
 const logger = require("../../helper/logger");
+const { Chats } = require("../../services/chatServices");
 
 // get all notificatio for logged in user
 // GET /api/v2/notification/get-all
@@ -19,11 +20,17 @@ const getAllNotification = async (req, res, next) => {
 
     const getAll = await findAllNotification({
       where: { receiver_id: userId },
-      include: {
-        model: Users,
-        as: "otheruser",
-        attributes: ["id", "photo"],
-      },
+      include: [
+        {
+          model: Users,
+          as: "otheruser",
+          attributes: ["id", "photo"],
+        },
+        {
+          model: Chats,
+          attributes: ["id"],
+        },
+      ],
       attributes: ["id", "title", "message", "seen"],
       order: [["createdAt", "DESC"]],
     });

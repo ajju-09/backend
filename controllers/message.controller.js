@@ -8,7 +8,6 @@ const {
   findOneMessage,
   createMessage,
   findAllMessage,
-  findMessageByKey,
   updateMessage,
 } = require("../services/messageService");
 const db = require("../models");
@@ -21,11 +20,7 @@ const {
   MessageSetting,
 } = require("../services/messageSettingServices");
 const { encryptMessage, decryptMessage } = require("../helper/cipherMessage");
-const {
-  ChatSetting,
-  updateChatSetting,
-  findOneChatSetting,
-} = require("../services/chatSettingServices");
+const { updateChatSetting } = require("../services/chatSettingServices");
 
 // send message
 // POST /api/v1/message/send
@@ -73,6 +68,7 @@ const sendMessage = async (req, res, next) => {
       await createNotification({
         sender_id: senderId,
         receiver_id: receiverId,
+        chat_id: chatId,
         title: encryptMessage("Sent File"),
         message: `${user.name} sent you a file`,
         seen: false,
@@ -113,25 +109,6 @@ const sendMessage = async (req, res, next) => {
       { msg_id: msg.id, chat_id: chatId, user_id: msg.receiver_id },
     ]);
 
-    if (msg) {
-      await ChatSetting.increment("unread_count", {
-        by: 1,
-        where: {
-          chat_id: chatId,
-          user_id: receiverId,
-        },
-      });
-
-      const updatedCount = await findOneChatSetting({
-        where: { chat_id: chatId, user_id: receiverId },
-      });
-
-      io.to(receiverId.toString()).emit("count", {
-        chatId: chat.id,
-        count: updatedCount.unread_count,
-      });
-    }
-
     const responseMsg = {
       ...msg.toJSON(),
       text: decryptMessage(msg.text),
@@ -158,6 +135,7 @@ const sendMessage = async (req, res, next) => {
         await createNotification({
           sender_id: senderId,
           receiver_id: receiverId,
+          chat_id: chatId,
           title: msg.text,
           message: `You have a new message from ${user.name}`,
           seen: false,
@@ -207,16 +185,6 @@ const getMessage = async (req, res, next) => {
         .status(403)
         .json({ message: "User not Authorized", success: false });
     }
-
-    await updateChatSetting(
-      { unread_count: 0 },
-      {
-        where: {
-          chat_id: chatId,
-          user_id: userId,
-        },
-      },
-    );
 
     await updateNotification(
       { seen: true },

@@ -146,14 +146,7 @@ const getMyChats = async (req, res, next) => {
         {
           model: ChatSetting,
           where: { user_id: userId, is_delete: false },
-          attributes: [
-            "user_id",
-            "is_pin",
-            "is_mute",
-            "is_block",
-            "unread_count",
-            "is_delete",
-          ],
+          attributes: ["user_id", "is_pin", "is_mute", "is_block", "is_delete"],
         },
         {
           model: Users,
