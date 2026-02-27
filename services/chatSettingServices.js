@@ -17,9 +17,15 @@ const BulkCreateChatSetting = async (array) => {
   return data;
 };
 
+const incrementChatSetting = async (value, query) => {
+  const data = await ChatSetting.increment(value, query);
+  return data;
+};
+
 module.exports = {
   ChatSetting,
   findOneChatSetting,
   updateChatSetting,
   BulkCreateChatSetting,
+  incrementChatSetting,
 };

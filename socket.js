@@ -1,7 +1,8 @@
 const { Server } = require("socket.io");
 const { updateUser, findUserByKey } = require("./services/userServices");
 const jwt = require("jsonwebtoken");
-const db = require("./models");
+const { findOneMessage } = require("./services/messageService");
+const { updateChatSetting } = require("./services/chatSettingServices");
 
 let io;
 // const userSocketMap = new Map();
@@ -75,18 +76,6 @@ const initialize = (server) => {
         socket.disconnect();
       }
 
-      socket.on("open_chat", async ({ chatId, senderId }) => {
-        await db.Message.update(
-          { is_read: true },
-          { where: { chat_id: chatId, receiver_id: userId, is_read: false } },
-        );
-
-        // notify sender
-        io.to(senderId).emit("message_seen", {
-          chatId,
-        });
-      });
-
       socket.on("fe_typing", (data) => {
         // Example
         // {
@@ -100,6 +89,30 @@ const initialize = (server) => {
         if (socketData?.rid) {
           io.emit(`${socketData.rid}_typing`, data);
         }
+      });
+
+      socket.on("fe_seen", async ({ cid, uid }) => {
+        const lastMsg = await findOneMessage({
+          where: { chat_id: cid },
+          order: [["createdAt", "DESC"]],
+        });
+
+        if (!lastMsg) return;
+
+        await updateChatSetting(
+          { lastSeenMsgId: lastMsg.id, lastSeen: new Date(), unread_count: 0 },
+          {
+            where: {
+              chat_id: cid,
+              user_id: uid,
+            },
+          },
+        );
+
+        io.to(lastMsg.receiver_id).emit("seen", {
+          cid: lastMsg.chat_id,
+          seenBy: uid,
+        });
       });
 
       // Disconnect

@@ -20,7 +20,7 @@ const {
   MessageSetting,
 } = require("../services/messageSettingServices");
 const { encryptMessage, decryptMessage } = require("../helper/cipherMessage");
-const { updateChatSetting } = require("../services/chatSettingServices");
+const { incrementChatSetting } = require("../services/chatSettingServices");
 
 // send message
 // POST /api/v1/message/send
@@ -103,6 +103,13 @@ const sendMessage = async (req, res, next) => {
       { last_message: msg.text, last_message_time: new Date() },
       { where: { id: chatId } },
     );
+
+    if (msg) {
+      await incrementChatSetting(
+        { unread_count: 1 },
+        { where: { chat_id: chatId, user_id: receiverId } },
+      );
+    }
 
     await bulkCreateMessageSetting([
       { msg_id: msg.id, chat_id: chatId, user_id: msg.sender_id },

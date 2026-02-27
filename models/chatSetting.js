@@ -21,6 +21,18 @@ module.exports = (sequelize, DataTypes) => {
       is_block: {
         type: DataTypes.BOOLEAN,
       },
+      lastSeenMsgId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      lastSeen: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      unread_count: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       is_delete: {
         type: DataTypes.BOOLEAN,
       },
