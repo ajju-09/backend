@@ -13,6 +13,7 @@ const path = require("path");
 const http = require("http");
 const { initialize } = require("./socket");
 const errorHandler = require("./middlewares/errorHandler.middleware");
+const initializeRedis = require("./redis/client.redis");
 
 dotenv.config();
 const app = express();
@@ -49,6 +50,13 @@ app.use("/api/v2/notification", notificationRouter);
 
 app.use(errorHandler);
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+try {
+  initializeRedis();
+
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+} catch (error) {
+  console.log("Error occured while starting server", error.message);
+  process.exit(1);
+}
