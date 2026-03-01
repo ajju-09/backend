@@ -32,7 +32,7 @@ router.put("/update", auth, imageAuth, update);
 
 router.delete("/delete", auth, deleteUser);
 
-router.get("/logout", auth, logout);
+router.post("/logout", auth, logout);
 
 // photo upload
 router.post("/upload", auth, imageAuth, uploadImage);

@@ -21,6 +21,12 @@ const uploadToCloudinary = require("../helper/uploadToCloudinary");
 const { getIo } = require("../socket");
 const sendEmail = require("../helper/sendMail");
 const { generateOtp, expiresIn } = require("../helper/generateOtp");
+const {
+  getCacheForUser,
+  setCacheForUser,
+  clearCacheForUser,
+  clearCacheForAllUsers,
+} = require("../redis/user.cache");
 
 // register
 // POST /api/v1/users/register
@@ -48,6 +54,8 @@ const register = async (req, res, next) => {
 
     // check for this email already exists or not
     if (existedUser && existedPhone) {
+      await clearCacheForAllUsers("allUsers:*");
+
       await updateUser(
         { isDeleted: false, isLogin: true },
         { where: { email: email } },
@@ -100,6 +108,8 @@ const register = async (req, res, next) => {
     };
 
     if (newUser) {
+      await clearCacheForAllUsers("allUsers:*");
+
       return res.status(200).json({
         message: "User registered successfully",
         success: true,
@@ -221,6 +231,16 @@ const profile = async (req, res, next) => {
 
     logger.info(`${req.method} ${req.url}`);
 
+    const cacheData = await getCacheForUser(`userProfile:${id}`);
+
+    if (cacheData) {
+      return res.status(200).json({
+        message: "User profile fetched successfully",
+        data: cacheData,
+        success: true,
+      });
+    }
+
     // grab data from database exclude password
     const data = await findAllUser({
       where: {
@@ -237,6 +257,8 @@ const profile = async (req, res, next) => {
         .message({ message: "user data not found", success: false });
     }
 
+    await setCacheForUser(`userProfile:${id}`, data);
+
     res
       .status(200)
       .json({ message: "User profile", success: true, data: data });
@@ -249,7 +271,20 @@ const profile = async (req, res, next) => {
 const getAllUser = async (req, res, next) => {
   try {
     const id = req.id;
+
     logger.info(`${req.method} ${req.url}`);
+
+    const cacheData = await getCacheForUser(`allUsers:${id}`);
+
+    if (cacheData) {
+      console.log("Cached hit inside get all users");
+      return res.status(200).json({
+        message: "Fetched all user successfully",
+        success: true,
+        data: cacheData,
+      });
+    }
+
     const data = await findAllUser({
       where: {
         id: {
@@ -262,6 +297,14 @@ const getAllUser = async (req, res, next) => {
         exclude: ["password", "otp_purpose", "otp"],
       },
     });
+
+    if (!data) {
+      return res
+        .status(400)
+        .json({ message: "There is no one in database", success: false });
+    }
+
+    await setCacheForUser(`allUsers:${id}`, data);
 
     res.status(200).json({ message: "Fetched all user", success: true, data });
   } catch (error) {
@@ -301,8 +344,16 @@ const update = async (req, res, next) => {
         .json({ message: "User not found", success: false });
     }
 
+    await clearCacheForUser(`userProfile:${id}`);
+
     switch (action) {
       case "profile":
+        if (user.name.toLowerCase() === name.toLowerCase()) {
+          return res
+            .status(400)
+            .json({ message: "Input name is same", success: false });
+        }
+
         const updatedData = {
           name: name,
           email: email,
@@ -310,7 +361,6 @@ const update = async (req, res, next) => {
         };
 
         // update it in database
-
         await updateUser(updatedData, {
           where: { id: id },
         });
@@ -375,6 +425,8 @@ const deleteUser = async (req, res, next) => {
         .json({ message: "User not found", success: false });
     }
 
+    await clearCacheForAllUsers("allUsers:*");
+
     // update is isDeleted col
     await updateUser(
       { isDeleted: true, isLogin: false, is_online: 0, isVerified: false },
@@ -433,7 +485,7 @@ const uploadImage = async (req, res, next) => {
   }
 };
 
-// GET /api/v1/users/logout
+// POST /api/v1/users/logout
 const logout = async (req, res, next) => {
   try {
     // find user
@@ -449,7 +501,7 @@ const logout = async (req, res, next) => {
     }
 
     await updateUser(
-      { isLogin: false, last_seen: new Date() },
+      { isLogin: false, last_seen: new Date(), is_online: false },
       { where: { id: id } },
     );
 
@@ -468,8 +520,18 @@ const searchUsers = async (req, res, next) => {
   try {
     const { name, limit = "4" } = req.query;
 
+    logger.info(`${req.method} ${req.url}`);
+
     if (!name) {
       return res.status(400).json({ message: "Search text required" });
+    }
+
+    const cacheData = await getCacheForUser("searchUser");
+
+    if (cacheData) {
+      return res
+        .status(200)
+        .json({ message: "Search users", success: true, data: cacheData });
     }
 
     const user = await findAllUser({
@@ -502,6 +564,8 @@ const searchUsers = async (req, res, next) => {
         .status(400)
         .json({ message: "Text doesn't match with any one", success: false });
     }
+
+    await setCacheForUser("searchUser", user);
 
     res.status(200).json({ success: true, data: user, limit: limit });
   } catch (error) {
