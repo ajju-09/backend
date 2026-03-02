@@ -1,5 +1,5 @@
 const logger = require("../helper/logger");
-const { findChatByKey, updateChat } = require("../services/chatServices");
+const { findChatByKey } = require("../services/chatServices");
 const { findOneChatSetting } = require("../services/chatSettingServices");
 const { updateMessage } = require("../services/messageService");
 
@@ -204,11 +204,6 @@ const deleteChat = async (req, res, next) => {
 
     chatsetting.is_delete = !chatsetting.is_delete;
     await chatsetting.save();
-
-    await updateChat(
-      { last_message: null, last_message_time: null },
-      { where: { id: chatId } },
-    );
 
     await updateMessage(
       { delete_for_all: true },

@@ -9,7 +9,6 @@ const {
   createMessage,
   findAllMessage,
   updateMessage,
-  findMessageByKey,
 } = require("../services/messageService");
 const db = require("../models");
 const {
