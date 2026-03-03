@@ -66,6 +66,10 @@ const sendMessage = async (req, res, next) => {
 
     if (req.files && req.files.length > 0) {
       await clearCacheData(`noti:${receiverId}`);
+      await clearCacheData(`media:${senderId}`);
+      await clearCacheData(`docs:${senderId}`);
+      await clearCacheData(`mediaInChat:${chatId}:${senderId}`);
+      await clearCacheData(`docsInChat:${chatId}:${senderId}`);
 
       const uploads = await Promise.all(
         req.files.map(async (file) => await uploadToCloudinary(file)),
@@ -307,6 +311,13 @@ const pinMessage = async (req, res, next) => {
         .json({ message: "Your not authorized", success: false });
     }
 
+    await clearCacheData(`star:${userId}`);
+    await clearCacheData(`starInChat:${msg.chat_id}:${userId}`);
+    await clearCacheData(`media:${userId}`);
+    await clearCacheData(`docs:${userId}`);
+    await clearCacheData(`mediaInChat:${msg.chat_id}:${userId}`);
+    await clearCacheData(`docsInChat:${msg.chat_id}:${userId}`);
+
     if (msg.is_pin) {
       msg.is_pin = false;
       await msg.save();
@@ -365,6 +376,10 @@ const deleteForAll = async (req, res, next) => {
 
     await clearCacheData(`star:${userId}`);
     await clearCacheData(`starInChat:${msg.chat_id}:${userId}`);
+    await clearCacheData(`media:${userId}`);
+    await clearCacheData(`docs:${userId}`);
+    await clearCacheData(`mediaInChat:${msg.chat_id}:${userId}`);
+    await clearCacheData(`docsInChat:${msg.chat_id}:${userId}`);
 
     msg.delete_for_all = true;
     await msg.save();

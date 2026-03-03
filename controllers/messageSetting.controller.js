@@ -34,6 +34,10 @@ const starMessage = async (req, res, next) => {
 
     await clearCacheData(`star:${userId}`);
     await clearCacheData(`starInChat:${messagesetting.chat_id}:${userId}`);
+    await clearCacheData(`media:${userId}`);
+    await clearCacheData(`docs:${userId}`);
+    await clearCacheData(`mediaInChat:${messagesetting.chat_id}:${userId}`);
+    await clearCacheData(`docsInChat:${messagesetting.chat_id}:${userId}`);
 
     messagesetting.is_star = !messagesetting.is_star;
     await messagesetting.save();
@@ -74,6 +78,10 @@ const deleteMessageForMe = async (req, res, next) => {
 
     await clearCacheData(`star:${userId}`);
     await clearCacheData(`starInChat:${msg.chat_id}:${userId}`);
+    await clearCacheData(`media:${userId}`);
+    await clearCacheData(`docs:${userId}`);
+    await clearCacheData(`mediaInChat:${msg.chat_id}:${userId}`);
+    await clearCacheData(`docsInChat:${msg.chat_id}:${userId}`);
 
     await updateMessageSetting(
       { delete_for_me: true },

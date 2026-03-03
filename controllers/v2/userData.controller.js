@@ -3,6 +3,8 @@ const { findAllMessage } = require("../../services/messageService");
 const { decryptMessage } = require("../../helper/cipherMessage");
 const { findChatByKey } = require("../../services/chatServices");
 const logger = require("../../helper/logger");
+const { setCacheData, getCacheData } = require("../../redis/redis.cache");
+
 // get all media
 // GET /api/v2/user-data/get-media
 // private access
@@ -11,6 +13,14 @@ const getAllMedia = async (req, res, next) => {
     const userId = req.id;
 
     logger.info(`${req.method} ${req.url}`);
+
+    const cacheData = await getCacheData(`media:${userId}`);
+
+    if (cacheData) {
+      return res
+        .status(200)
+        .json({ message: "get all media", success: true, data: cacheData });
+    }
 
     const allMedia = await findAllMessage({
       where: {
@@ -31,6 +41,8 @@ const getAllMedia = async (req, res, next) => {
         .json({ message: "No media found", success: false });
     }
 
+    await setCacheData(`media:${userId}`, allMedia);
+
     res
       .status(200)
       .json({ message: "get all media", success: true, data: allMedia });
@@ -47,6 +59,14 @@ const getAllDocs = async (req, res, next) => {
     const userId = req.id;
 
     logger.info(`${req.method} ${req.url}`);
+
+    const cacheData = await getCacheData(`docs:${userId}`);
+
+    if (cacheData) {
+      return res
+        .status(200)
+        .json({ message: "get all docs", success: true, data: cacheData });
+    }
 
     const allDocs = await findAllMessage({
       where: {
@@ -65,6 +85,8 @@ const getAllDocs = async (req, res, next) => {
     if (!allDocs) {
       return res.status(400).json({ message: "No docs found", success: false });
     }
+
+    await setCacheData(`docs:${userId}`, allDocs);
 
     res
       .status(200)
@@ -141,6 +163,16 @@ const getAllMediaInChat = async (req, res, next) => {
         .json({ message: "chat not found", success: false });
     }
 
+    const cacheData = await getCacheData(`mediaInChat:${chatId}:${userId}`);
+
+    if (cacheData) {
+      return res.status(200).json({
+        message: "fetch all media for chat",
+        success: true,
+        data: cacheData,
+      });
+    }
+
     const mediaFiles = await findAllMessage({
       where: {
         chat_id: chatId,
@@ -160,6 +192,8 @@ const getAllMediaInChat = async (req, res, next) => {
         .status(400)
         .json({ message: "There is no media file available", success: false });
     }
+
+    await setCacheData(`mediaInChat:${chatId}:${userId}`, mediaFiles);
 
     res.status(200).json({
       message: "fetch all media for chat",
@@ -194,6 +228,16 @@ const getAllDocsInChat = async (req, res, next) => {
         .json({ message: "chat not found", success: false });
     }
 
+    const cacheData = await getCacheData(`docsInChat:${chatId}:${userId}`);
+
+    if (cacheData) {
+      return res.status(200).json({
+        message: "Fetch doc files successfully",
+        success: true,
+        data: cacheData,
+      });
+    }
+
     const docsFiles = await findAllMessage({
       where: {
         chat_id: chatId,
@@ -214,6 +258,8 @@ const getAllDocsInChat = async (req, res, next) => {
         .status(400)
         .json({ message: "There is no doc files available", success: false });
     }
+
+    await setCacheData(`docsInChat:${chatId}:${userId}`, docsFiles);
 
     res.status(200).json({
       message: "Fetch doc files successfully",
