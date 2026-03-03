@@ -9,6 +9,7 @@ const {
   createMessage,
   findAllMessage,
   updateMessage,
+  findMessageByKey,
 } = require("../services/messageService");
 const db = require("../models");
 const {
@@ -21,6 +22,7 @@ const {
 } = require("../services/messageSettingServices");
 const { encryptMessage, decryptMessage } = require("../helper/cipherMessage");
 const { incrementChatSetting } = require("../services/chatSettingServices");
+const { clearCacheData } = require("../redis/redis.cache");
 
 // send message
 // POST /api/v1/message/send
@@ -59,6 +61,8 @@ const sendMessage = async (req, res, next) => {
     let images = [];
 
     if (req.files && req.files.length > 0) {
+      await clearCacheData(`noti:${receiverId}`);
+
       const uploads = await Promise.all(
         req.files.map(async (file) => await uploadToCloudinary(file)),
       );
@@ -139,6 +143,7 @@ const sendMessage = async (req, res, next) => {
       });
 
       if (text !== null && text !== "") {
+        await clearCacheData(`noti:${receiverId}`);
         await createNotification({
           sender_id: senderId,
           receiver_id: receiverId,

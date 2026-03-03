@@ -8,6 +8,11 @@ const {
 const { decryptMessage } = require("../../helper/cipherMessage");
 const logger = require("../../helper/logger");
 const { Chats } = require("../../services/chatServices");
+const {
+  setCacheData,
+  getCacheData,
+  clearCacheData,
+} = require("../../redis/redis.cache");
 
 // get all notificatio for logged in user
 // GET /api/v2/notification/get-all
@@ -17,6 +22,20 @@ const getAllNotification = async (req, res, next) => {
     const userId = req.id;
 
     logger.info(`${req.method} ${req.url}`);
+
+    const cacheData = await getCacheData(`noti:${userId}`);
+
+    if (cacheData) {
+      const decryptedData = cacheData.map((item) => {
+        const decryptedData = decryptMessage(item.title || "");
+        return { ...item, title: decryptedData };
+      });
+      return res.status(200).json({
+        message: "Fetched all notification successfully",
+        success: true,
+        data: decryptedData,
+      });
+    }
 
     const getAll = await findAllNotification({
       where: { receiver_id: userId },
@@ -38,8 +57,10 @@ const getAllNotification = async (req, res, next) => {
     if (!getAll) {
       return res
         .status(404)
-        .json({ message: "There is no message for you", success: false });
+        .json({ message: "There is no notification for you", success: false });
     }
+
+    await setCacheData(`noti:${userId}`, getAll);
 
     const decryptedData = getAll.map((item) => {
       const plainText = decryptMessage(item.title);
@@ -47,7 +68,7 @@ const getAllNotification = async (req, res, next) => {
     });
 
     res.status(200).json({
-      message: "Featch all notifications successfully",
+      message: "Fetched all notifications successfully",
       success: true,
       data: decryptedData,
     });
@@ -61,6 +82,7 @@ const getAllNotification = async (req, res, next) => {
 // private access
 const seenNotification = async (req, res, next) => {
   try {
+    const userId = req.id;
     const { notiId } = req.params;
 
     logger.info(`${req.method} ${req.url}`);
@@ -70,6 +92,8 @@ const seenNotification = async (req, res, next) => {
         .status(400)
         .json({ message: "Notification id required", success: false });
     }
+
+    await clearCacheData(`noti:${userId}`);
 
     await updateNotification(
       {
@@ -113,6 +137,8 @@ const deleteNotification = async (req, res, next) => {
         .status(401)
         .json({ message: "Not Authorized", success: false });
     }
+
+    await clearCacheData(`noti:${userId}`);
 
     await destroyNotification({ where: { id: notiId, receiver_id: userId } });
 
