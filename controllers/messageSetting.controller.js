@@ -1,4 +1,6 @@
 const logger = require("../helper/logger");
+const { clearCacheData } = require("../redis/redis.cache");
+const { findMessageByKey } = require("../services/messageService");
 const {
   findOneMessageSetting,
   updateMessageSetting,
@@ -30,6 +32,9 @@ const starMessage = async (req, res, next) => {
         .json({ message: "Message setting not found", success: false });
     }
 
+    await clearCacheData(`star:${userId}`);
+    await clearCacheData(`starInChat:${messagesetting.chat_id}:${userId}`);
+
     messagesetting.is_star = !messagesetting.is_star;
     await messagesetting.save();
 
@@ -58,6 +63,17 @@ const deleteMessageForMe = async (req, res, next) => {
         .status(401)
         .json({ message: "Msg id required", success: false });
     }
+
+    const msg = await findMessageByKey(msgId);
+
+    if (!msg) {
+      return res
+        .status(404)
+        .json({ message: "Message not found", success: false });
+    }
+
+    await clearCacheData(`star:${userId}`);
+    await clearCacheData(`starInChat:${msg.chat_id}:${userId}`);
 
     await updateMessageSetting(
       { delete_for_me: true },

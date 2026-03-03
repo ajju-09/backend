@@ -17,9 +17,15 @@ const bulkCreateMessageSetting = async (arr) => {
   return data;
 };
 
+const findMessageSettingByPk = async (key) => {
+  const data = await MessageSetting.findByPk(key);
+  return data;
+};
+
 module.exports = {
   findOneMessageSetting,
   updateMessageSetting,
   MessageSetting,
   bulkCreateMessageSetting,
+  findMessageSettingByPk,
 };

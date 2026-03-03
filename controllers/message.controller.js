@@ -22,7 +22,11 @@ const {
 } = require("../services/messageSettingServices");
 const { encryptMessage, decryptMessage } = require("../helper/cipherMessage");
 const { incrementChatSetting } = require("../services/chatSettingServices");
-const { clearCacheData } = require("../redis/redis.cache");
+const {
+  clearCacheData,
+  setCacheData,
+  getCacheData,
+} = require("../redis/redis.cache");
 
 // send message
 // POST /api/v1/message/send
@@ -359,6 +363,9 @@ const deleteForAll = async (req, res, next) => {
         .json({ message: "Sender can delete for everyone", success: false });
     }
 
+    await clearCacheData(`star:${userId}`);
+    await clearCacheData(`starInChat:${msg.chat_id}:${userId}`);
+
     msg.delete_for_all = true;
     await msg.save();
 
@@ -441,6 +448,20 @@ const getAllStarMessages = async (req, res, next) => {
 
     logger.info(`${req.method} ${req.url}`);
 
+    const cacheData = await getCacheData(`star:${userId}`);
+
+    if (cacheData) {
+      cacheData.forEach((item) => {
+        item.text = decryptMessage(item.text);
+      });
+
+      return res.status(200).json({
+        message: "Started messages fetch successfully",
+        success: true,
+        data: cacheData,
+      });
+    }
+
     const starMsg = await findAllMessage({
       where: { delete_for_all: false },
       include: [
@@ -459,6 +480,8 @@ const getAllStarMessages = async (req, res, next) => {
       attributes: ["id", "text"],
       order: [["createdAt", "DESC"]],
     });
+
+    await setCacheData(`star:${userId}`, starMsg);
 
     starMsg.forEach((item) => {
       item.text = decryptMessage(item.text);
@@ -504,6 +527,20 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
         .json({ message: "chat not found", success: false });
     }
 
+    const cacheData = await getCacheData(`starInChat:${chatId}:${userId}`);
+
+    if (cacheData) {
+      cacheData.forEach((item) => {
+        cacheData.text = decryptMessage(item.text);
+      });
+
+      return res.status(200).json({
+        message: "Fetch all star message in chat successfully",
+        success: true,
+        data: cacheData,
+      });
+    }
+
     const starMsg = await findAllMessage({
       where: { chat_id: chatId, delete_for_all: false },
       include: [
@@ -524,6 +561,8 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
       // offset: starOffset,
       order: [["id", "DESC"]],
     });
+
+    await setCacheData(`starInChat:${chatId}:${userId}`, starMsg);
 
     starMsg.forEach((msg) => {
       msg.text = decryptMessage(msg.text);
