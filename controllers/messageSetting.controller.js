@@ -1,4 +1,4 @@
-const logger = require("../helper/logger");
+const { logger } = require("../helper/logger");
 const { clearCacheData } = require("../redis/redis.cache");
 const { findMessageByKey } = require("../services/messageService");
 const {

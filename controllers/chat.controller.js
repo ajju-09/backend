@@ -5,7 +5,7 @@ const {
   createChats,
   findAllChat,
 } = require("../services/chatServices");
-const logger = require("../helper/logger");
+const { logger } = require("../helper/logger");
 
 const {
   updateChatSetting,

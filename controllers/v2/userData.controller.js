@@ -2,7 +2,7 @@ const { Op } = require("sequelize");
 const { findAllMessage } = require("../../services/messageService");
 const { decryptMessage } = require("../../helper/cipherMessage");
 const { findChatByKey } = require("../../services/chatServices");
-const logger = require("../../helper/logger");
+const { logger } = require("../../helper/logger");
 const { setCacheData, getCacheData } = require("../../redis/redis.cache");
 
 // get all media

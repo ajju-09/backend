@@ -10,4 +10,13 @@ const logger = createLogger({
   ],
 });
 
-module.exports = logger;
+const rateLimitLogger = createLogger({
+  level: "warn",
+  format: format.combine(format.timestamp(), format.metadata(), format.json()),
+  transports: [
+    new transports.Console(),
+    new transports.File({ filename: "ratelimit.log" }),
+  ],
+});
+
+module.exports = { logger, rateLimitLogger };

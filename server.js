@@ -14,6 +14,7 @@ const http = require("http");
 const { initialize } = require("./socket");
 const errorHandler = require("./middlewares/errorHandler.middleware");
 const { initializeRedis } = require("./redis/redis.cache");
+const rateLimit = require("./middlewares/rateLimiter.middleware");
 
 dotenv.config();
 const app = express();
@@ -33,6 +34,7 @@ app.use(
     credentials: true,
   }),
 );
+app.use(rateLimit);
 initialize(server);
 
 app.use("/profileimage", express.static(path.join(__dirname, "profileimage")));

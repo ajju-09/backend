@@ -6,7 +6,7 @@ const {
   destroyNotification,
 } = require("../../services/notificationServices");
 const { decryptMessage } = require("../../helper/cipherMessage");
-const logger = require("../../helper/logger");
+const { logger } = require("../../helper/logger");
 const { Chats } = require("../../services/chatServices");
 const {
   setCacheData,

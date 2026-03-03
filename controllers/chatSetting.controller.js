@@ -1,4 +1,4 @@
-const logger = require("../helper/logger");
+const { logger } = require("../helper/logger");
 const { findChatByKey, updateChat } = require("../services/chatServices");
 const { findOneChatSetting } = require("../services/chatSettingServices");
 const { updateMessage } = require("../services/messageService");

@@ -9,7 +9,7 @@ const {
 const bcrypt = require("bcrypt");
 const generateToken = require("../helper/generateToken");
 const { Op } = require("sequelize");
-const logger = require("../helper/logger");
+const { logger } = require("../helper/logger");
 const {
   findSingleUser,
   createUser,

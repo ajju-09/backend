@@ -1,5 +1,5 @@
 const { Op, where } = require("sequelize");
-const logger = require("../helper/logger");
+const { logger } = require("../helper/logger");
 const { findChatByKey, updateChat } = require("../services/chatServices");
 const { Users, findUserByKey } = require("../services/userServices");
 const { getIo } = require("../socket");
