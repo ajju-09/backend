@@ -33,14 +33,21 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: false,
       },
-      createdAt: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW,
+      ads_enabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+      },
+      priority_delivery: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+      },
+      custom_status: {
+        type: DataTypes.BOOLEAN,
         allowNull: false,
       },
     },
     {
-      tableName: "Plans",
+      tableName: "plans",
       timestamps: true,
     },
   );
