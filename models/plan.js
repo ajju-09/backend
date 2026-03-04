@@ -56,6 +56,10 @@ module.exports = (sequelize, DataTypes) => {
     Plan.hasMany(models.Subscription, {
       foreignKey: "plan_id",
     });
+
+    Plan.hasMany(models.Transaction, {
+      foreignKey: "plan_id",
+    });
   };
 
   return Plan;

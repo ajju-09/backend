@@ -51,6 +51,10 @@ module.exports = (sequelize, DataTypes) => {
     Subscription.belongsTo(models.Plan, {
       foreignKey: "plan_id",
     });
+
+    Subscription.hasMany(models.Transaction, {
+      foreignKey: "sub_id",
+    });
   };
 
   return Subscription;
