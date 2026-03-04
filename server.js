@@ -7,6 +7,7 @@ const chatSetting = require("./routes/chatSetting.route");
 const messageSetting = require("./routes/messageSetting.route");
 const userData = require("./routes/v2/userData.route");
 const notificationRouter = require("./routes/v2/notification.route");
+const planRouter = require("./routes/v3/plan.route");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
@@ -49,6 +50,8 @@ app.use("/api/v2/messagesetting", messageSetting);
 
 app.use("/api/v2/user-data", userData);
 app.use("/api/v2/notification", notificationRouter);
+
+app.use("/api/v3/plan", planRouter);
 
 app.use(errorHandler);
 
