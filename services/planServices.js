@@ -7,4 +7,9 @@ const findPlanByKey = async (key) => {
   return data;
 };
 
-module.exports = { Plans, findPlanByKey };
+const findOnePlan = async (query) => {
+  const data = await Plans.findOne(query);
+  return data;
+};
+
+module.exports = { Plans, findPlanByKey, findOnePlan };

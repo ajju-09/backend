@@ -205,7 +205,7 @@ const stripeWebhook = async (req, res, next) => {
         const stripeSubId = session.id;
 
         await updateSubscription(
-          { status: "Expired" },
+          { status: "Expired", auto_renew: false },
           { where: { stripe_subscription_id: stripeSubId } },
         );
 

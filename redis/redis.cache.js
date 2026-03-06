@@ -27,7 +27,7 @@ const initializeRedis = async () => {
 };
 
 const setCacheData = async (key, data, expireTime) => {
-  await client.set(key, JSON.stringify(data), { EX: expireTime });
+  return await client.set(key, JSON.stringify(data), { EX: expireTime });
 };
 
 const getCacheData = async (key) => {
@@ -36,7 +36,15 @@ const getCacheData = async (key) => {
 };
 
 const clearCacheData = async (key) => {
-  await client.del(key);
+  return await client.del(key);
+};
+
+const increment = async (key) => {
+  return await client.incr(key);
+};
+
+const expireKey = async (key, time) => {
+  return await client.expire(key, time);
 };
 
 module.exports = {
@@ -44,4 +52,6 @@ module.exports = {
   setCacheData,
   getCacheData,
   clearCacheData,
+  increment,
+  expireKey,
 };

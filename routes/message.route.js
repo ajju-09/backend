@@ -11,11 +11,12 @@ const {
   editMessage,
 } = require("../controllers/message.controller");
 const multiUpload = require("../middlewares/multiUpload.middleware");
+const premiumFeature = require("../middlewares/premium.middleware");
 
 const router = express.Router();
 
 // send message
-router.post("/send", auth, multiUpload, sendMessage);
+router.post("/send", auth, multiUpload, premiumFeature, sendMessage);
 
 // get messages of chat
 router.get("/:chatId", auth, getMessage);

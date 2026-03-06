@@ -1,13 +1,23 @@
 const db = require("../models/index");
-const Subscritions = db.Subscription;
+const Subscriptions = db.Subscription;
 
 const createSubscription = async (data) => {
-  return await Subscritions.create(data);
+  return await Subscriptions.create(data);
 };
 
 const updateSubscription = async (value, query) => {
-  const data = await Subscritions.update(value, query);
+  const data = await Subscriptions.update(value, query);
   return data;
 };
 
-module.exports = { createSubscription, updateSubscription };
+const findOneSubscription = async (query) => {
+  const data = await Subscriptions.findOne(query);
+  return data;
+};
+
+module.exports = {
+  Subscriptions,
+  createSubscription,
+  updateSubscription,
+  findOneSubscription,
+};

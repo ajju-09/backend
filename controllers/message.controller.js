@@ -26,7 +26,11 @@ const {
   clearCacheData,
   setCacheData,
   getCacheData,
+  increment,
+  expireKey,
 } = require("../redis/redis.cache");
+const { findOneSubscription } = require("../services/subscriptionService");
+const { Plans, findOnePlan } = require("../services/planServices");
 
 // send message
 // POST /api/v1/message/send
@@ -61,6 +65,46 @@ const sendMessage = async (req, res, next) => {
       chat.user_one === senderId ? chat.user_two : chat.user_one;
 
     const receiver = await findUserByKey(receiverId);
+
+    const subscription = await findOneSubscription({
+      where: {
+        user_id: senderId,
+        status: "Active",
+        end_date: { [Op.gt]: new Date() },
+      },
+      include: [
+        { model: Plans, attributes: ["id", "type", "daily_message_limit"] },
+      ],
+    });
+
+    let dailyMessage = 10;
+
+    const freePlan = await findOnePlan({ where: { type: "Free" } });
+
+    if (
+      !subscription ||
+      subscription.status !== "Active" ||
+      !subscription.end_date ||
+      new Date(subscription.end_date) <= new Date()
+    ) {
+      dailyMessage = freePlan?.daily_message_limit ?? 10;
+    } else if (subscription.Plan) {
+      dailyMessage = subscription.Plan.daily_message_limit;
+    }
+
+    const tempKey = `user:${senderId}:${new Date().toISOString().split("T")[0]}`;
+
+    const currCount = await increment(tempKey);
+
+    if (currCount === 1) {
+      await expireKey(tempKey, 86400);
+    }
+
+    if (dailyMessage !== null && currCount > dailyMessage) {
+      return res
+        .status(403)
+        .json({ message: "Daily message limit reached.", success: false });
+    }
 
     let images = [];
 
