@@ -12,7 +12,7 @@ const {
   setCacheData,
   getCacheData,
   clearCacheData,
-} = require("../../redis/redis.cache");
+} = require("../../redis/redis.client");
 
 // get all notificatio for logged in user
 // GET /api/v2/notification/get-all

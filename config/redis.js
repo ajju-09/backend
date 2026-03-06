@@ -1,13 +1,19 @@
 const { createClient } = require("redis");
 require("dotenv").config();
 
-const client = createClient({
+const redisConfig = {
   username: process.env.REDIS_USERNAME,
   password: process.env.REDIS_PASSWORD,
   socket: {
     host: process.env.REDIS_HOST,
     port: process.env.REDIS_PORT,
   },
-});
+};
 
-module.exports = client;
+const client = createClient(redisConfig);
+
+const publisher = createClient(redisConfig);
+
+const subscriber = createClient(redisConfig);
+
+module.exports = { client, publisher, subscriber };

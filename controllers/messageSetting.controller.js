@@ -1,5 +1,5 @@
 const { logger } = require("../helper/logger");
-const { clearCacheData } = require("../redis/redis.cache");
+const { clearCacheData } = require("../redis/redis.client");
 const { findMessageByKey } = require("../services/messageService");
 const {
   findOneMessageSetting,

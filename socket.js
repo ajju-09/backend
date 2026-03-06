@@ -3,15 +3,32 @@ const { updateUser, findUserByKey } = require("./services/userServices");
 const jwt = require("jsonwebtoken");
 const { findOneMessage } = require("./services/messageService");
 const { updateChatSetting } = require("./services/chatSettingServices");
+const { subscriber } = require("./config/redis");
 
 let io;
 // const userSocketMap = new Map();
-const initialize = (server) => {
+const initialize = async (server) => {
   io = new Server(server, {
     cors: {
       origin: "*",
       methods: ["GET", "POST"],
     },
+  });
+
+  await subscriber.subscribe("MESSAGES", (message) => {
+    try {
+      const parsedMessage = JSON.parse(message);
+
+      const receiverId = parsedMessage.receiver_id;
+
+      io.to(receiverId.toString()).emit("new_message", {
+        msg: parsedMessage,
+      });
+
+      console.log("Message received from Redis");
+    } catch (error) {
+      console.log("Redis subscriber error", error.message);
+    }
   });
 
   io.on("connection", async (socket) => {

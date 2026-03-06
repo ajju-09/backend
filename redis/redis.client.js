@@ -1,6 +1,6 @@
-const client = require("../config/redis");
+const { client } = require("../config/redis");
 
-const initializeRedis = async () => {
+const initializeRedisClient = async () => {
   try {
     client.on("error", (err) => {
       console.log("Redis Error:", err.message);
@@ -48,7 +48,7 @@ const expireKey = async (key, time) => {
 };
 
 module.exports = {
-  initializeRedis,
+  initializeRedisClient,
   setCacheData,
   getCacheData,
   clearCacheData,

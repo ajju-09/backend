@@ -3,7 +3,7 @@ const { findAllMessage } = require("../../services/messageService");
 const { decryptMessage } = require("../../helper/cipherMessage");
 const { findChatByKey } = require("../../services/chatServices");
 const { logger } = require("../../helper/logger");
-const { setCacheData, getCacheData } = require("../../redis/redis.cache");
+const { setCacheData, getCacheData } = require("../../redis/redis.client");
 
 // get all media
 // GET /api/v2/user-data/get-media

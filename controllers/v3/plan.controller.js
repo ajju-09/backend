@@ -1,4 +1,4 @@
-const { setCacheData, getCacheData } = require("../../redis/redis.cache");
+const { setCacheData, getCacheData } = require("../../redis/redis.client");
 const { findPlanByKey } = require("../../services/planServices");
 
 // get all plans

@@ -28,9 +28,10 @@ const {
   getCacheData,
   increment,
   expireKey,
-} = require("../redis/redis.cache");
+} = require("../redis/redis.client");
 const { findOneSubscription } = require("../services/subscriptionService");
 const { Plans, findOnePlan } = require("../services/planServices");
+const { publisher } = require("../config/redis");
 
 // send message
 // POST /api/v1/message/send
@@ -178,33 +179,33 @@ const sendMessage = async (req, res, next) => {
       image_url: msg.image_url ? JSON.parse(msg.image_url) : [],
     };
 
-    // checking online users
-    if (receiver && receiver.is_online > 0) {
-      console.log("==============================");
-      console.log("receiver id", receiverId);
-      console.log("==============================");
+    console.log("==============================");
+    console.log("receiver id", receiverId);
+    console.log("==============================");
 
-      io.to(receiverId.toString()).emit("new_message", {
-        msg: responseMsg,
-        reply_to: msg.reply_to,
+    io.to(receiverId.toString()).emit("new_message", {
+      msg: responseMsg,
+      reply_to: msg.reply_to,
+    });
+
+    await publisher.publish("MESSAGES", JSON.stringify(responseMsg));
+    console.log("Message publish on redis");
+
+    io.to(receiverId.toString()).emit("new_noti", {
+      message: `${user.name} sent you a message`,
+      chatId: chatId,
+    });
+
+    if (text !== null && text !== "") {
+      await clearCacheData(`noti:${receiverId}`);
+      await createNotification({
+        sender_id: senderId,
+        receiver_id: receiverId,
+        chat_id: chatId,
+        title: msg.text,
+        message: `You have a new message from ${user.name}`,
+        seen: false,
       });
-
-      io.to(receiverId.toString()).emit("new_noti", {
-        message: `${user.name} sent you a message`,
-        chatId: chatId,
-      });
-
-      if (text !== null && text !== "") {
-        await clearCacheData(`noti:${receiverId}`);
-        await createNotification({
-          sender_id: senderId,
-          receiver_id: receiverId,
-          chat_id: chatId,
-          title: msg.text,
-          message: `You have a new message from ${user.name}`,
-          seen: false,
-        });
-      }
     }
 
     await updateChat({ updatedAt: new Date() }, { where: { id: chatId } });

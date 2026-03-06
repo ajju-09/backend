@@ -1,16 +1,16 @@
 const ip = require("ip");
-const client = require("../config/redis");
 const { rateLimitLogger } = require("../helper/logger");
+const { increment, expireKey } = require("../redis/redis.client");
 require("dotenv").config();
 
 const rateLimit = async (req, res, next) => {
   try {
     const rateKey = `rate:${ip.address()}`;
 
-    const requests = await client.incr(rateKey);
+    const requests = await increment(rateKey);
 
     if (requests === 1) {
-      await client.expire(rateKey, process.env.RATE_LIMIT_WINDOW);
+      await expireKey(rateKey, process.env.RATE_LIMIT_WINDOW);
     }
 
     if (requests > process.env.RATE_LIMIT) {

@@ -15,9 +15,11 @@ const path = require("path");
 const http = require("http");
 const { initialize } = require("./socket");
 const errorHandler = require("./middlewares/errorHandler.middleware");
-const { initializeRedis } = require("./redis/redis.cache");
 const rateLimit = require("./middlewares/rateLimiter.middleware");
 const { stripeWebhook } = require("./controllers/v3/subscription.controller");
+const { initializeRedisClient } = require("./redis/redis.client");
+const { initializePublisher } = require("./redis/redis.publisher");
+const { initializeSubscriber } = require("./redis/redis.subscriber");
 
 dotenv.config();
 const app = express();
@@ -61,7 +63,9 @@ app.use("/api/v3/subscription", subscriptionRouter);
 app.use(errorHandler);
 
 try {
-  initializeRedis();
+  initializeRedisClient();
+  initializePublisher();
+  initializeSubscriber();
 
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
