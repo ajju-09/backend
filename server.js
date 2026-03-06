@@ -8,6 +8,7 @@ const messageSetting = require("./routes/messageSetting.route");
 const userData = require("./routes/v2/userData.route");
 const notificationRouter = require("./routes/v2/notification.route");
 const planRouter = require("./routes/v3/plan.route");
+const subscriptionRouter = require("./routes/v3/subscription.route");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
@@ -16,6 +17,7 @@ const { initialize } = require("./socket");
 const errorHandler = require("./middlewares/errorHandler.middleware");
 const { initializeRedis } = require("./redis/redis.cache");
 const rateLimit = require("./middlewares/rateLimiter.middleware");
+const { stripeWebhook } = require("./controllers/v3/subscription.controller");
 
 dotenv.config();
 const app = express();
@@ -24,6 +26,8 @@ const PORT = process.env.PORT || 4000;
 
 // check for database connection
 dbconnection();
+
+app.post("/webhook", express.raw({ type: "application/json" }), stripeWebhook);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -52,6 +56,7 @@ app.use("/api/v2/user-data", userData);
 app.use("/api/v2/notification", notificationRouter);
 
 app.use("/api/v3/plan", planRouter);
+app.use("/api/v3/subscription", subscriptionRouter);
 
 app.use(errorHandler);
 

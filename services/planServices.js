@@ -1,10 +1,10 @@
 const db = require("../models/index");
 
-const Plan = db.Plan;
+const Plans = db.Plan;
 
 const findPlanByKey = async (key) => {
-  const data = await Plan.findByPk(key);
+  const data = await Plans.findByPk(key);
   return data;
 };
 
-module.exports = { findPlanByKey };
+module.exports = { Plans, findPlanByKey };

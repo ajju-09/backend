@@ -14,16 +14,12 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      sub_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-      },
       plan_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
       stripe_payment_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING,
         allowNull: true,
       },
       amount: {
@@ -42,7 +38,17 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: null,
       },
       invoice_url: {
-        type: DataTypes.STRING(255),
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
         allowNull: true,
       },
     },
@@ -59,10 +65,6 @@ module.exports = (sequelize, DataTypes) => {
 
     Transaction.belongsTo(models.Plan, {
       foreignKey: "plan_id",
-    });
-
-    Transaction.belongsTo(models.Subscription, {
-      foreignKey: "sub_id",
     });
   };
 

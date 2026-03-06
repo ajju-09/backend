@@ -18,6 +18,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      stripe_subscription_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
       start_date: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -50,10 +54,6 @@ module.exports = (sequelize, DataTypes) => {
 
     Subscription.belongsTo(models.Plan, {
       foreignKey: "plan_id",
-    });
-
-    Subscription.hasMany(models.Transaction, {
-      foreignKey: "sub_id",
     });
   };
 
