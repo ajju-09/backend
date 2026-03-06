@@ -1,8 +1,8 @@
 const nodemailer = require("nodemailer");
-const otpTemplate = require("./otpTemplet");
+const { otpTemplate, invoiceTemplate } = require("./otpTemplet");
 require("dotenv").config();
 
-const sendEmail = async (options) => {
+const sendEmail = async (options, purpose) => {
   const transporter = nodemailer.createTransport({
     host: process.env.MAILTRAP_HOST,
     port: process.env.MAILTRAP_PORT,
@@ -12,12 +12,38 @@ const sendEmail = async (options) => {
     },
   });
 
-  const mail = {
-    from: "chatme@gmail.com",
-    to: options.email,
-    subject: `${options.otp} is your account verification code`,
-    html: otpTemplate(options.otp),
-  };
+  transporter.verify((err) => {
+    if (err) {
+      console.log("Mail server connection failed", err.message);
+    }
+
+    console.log("Mail server is Up & Running....");
+  });
+
+  let mail;
+
+  switch (purpose) {
+    case "otp":
+      mail = {
+        from: "chatme@gmail.com",
+        to: options.email,
+        subject: `${options.otp} is your account verification code`,
+        html: otpTemplate(options.otp),
+      };
+      break;
+
+    case "invoice":
+      mail = {
+        from: "chatme@gmail.com",
+        to: options.email,
+        subject: "Payment to ChatMe is Successfull",
+        html: invoiceTemplate(options.name, options.url, options.number),
+      };
+      break;
+
+    default:
+      console.log("Invalid email purpose");
+  }
 
   try {
     await transporter.sendMail(mail);
@@ -26,7 +52,6 @@ const sendEmail = async (options) => {
     console.log("============================");
   } catch (error) {
     console.log("Email service failed", error.message);
-    next(error);
   }
 };
 

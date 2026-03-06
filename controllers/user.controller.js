@@ -562,7 +562,7 @@ const sendOtp = async (req, res, next) => {
     }
 
     // send email
-    await sendEmail({ email: email, otp: Otp });
+    await sendEmail({ email: email, otp: Otp }, "otp");
 
     res.status(200).json({ message: "Otp sent successfully", success: true });
   } catch (error) {

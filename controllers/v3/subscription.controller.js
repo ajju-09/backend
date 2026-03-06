@@ -1,3 +1,4 @@
+const sendEmail = require("../../helper/sendMail");
 const { findPlanByKey } = require("../../services/planServices");
 const {
   createSubscription,
@@ -230,6 +231,16 @@ const stripeWebhook = async (req, res, next) => {
           {
             where: { user_id: user.id },
           },
+        );
+
+        await sendEmail(
+          {
+            name: user.name,
+            email: user.email,
+            url: invoice.hosted_invoice_url,
+            number: invoice.number,
+          },
+          "invoice",
         );
 
         break;
