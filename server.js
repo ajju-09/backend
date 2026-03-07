@@ -9,6 +9,7 @@ const userData = require("./routes/v2/userData.route");
 const notificationRouter = require("./routes/v2/notification.route");
 const planRouter = require("./routes/v3/plan.route");
 const subscriptionRouter = require("./routes/v3/subscription.route");
+const transactionRouter = require("./routes/v3/transaction.route");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
@@ -59,6 +60,7 @@ app.use("/api/v2/notification", notificationRouter);
 
 app.use("/api/v3/plan", planRouter);
 app.use("/api/v3/subscription", subscriptionRouter);
+app.use("/api/v3/transactions", transactionRouter);
 
 app.use(errorHandler);
 

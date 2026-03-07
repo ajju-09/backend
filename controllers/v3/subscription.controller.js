@@ -1,4 +1,5 @@
 const sendEmail = require("../../helper/sendMail");
+const { clearCacheData } = require("../../redis/redis.client");
 const { findPlanByKey } = require("../../services/planServices");
 const {
   createSubscription,
@@ -155,8 +156,13 @@ const stripeWebhook = async (req, res, next) => {
           { where: { id: transactionId } },
         );
 
-        await updateSubscription(
-          { status: "Expired" },
+        const updateSub = await updateSubscription(
+          {
+            start_date: null,
+            end_date: null,
+            status: "Expired",
+            auto_renew: false,
+          },
           {
             where: {
               user_id: userId,
@@ -164,6 +170,10 @@ const stripeWebhook = async (req, res, next) => {
             },
           },
         );
+
+        if (updateSub) {
+          await clearCacheData(`premium:${userId}`);
+        }
 
         const startDate = new Date();
         const endDate = new Date();
@@ -205,15 +215,24 @@ const stripeWebhook = async (req, res, next) => {
 
         const stripeSubId = session.id;
 
-        await updateSubscription(
-          { status: "Expired", auto_renew: false },
+        const happen = await updateSubscription(
+          {
+            status: "Expired",
+            auto_renew: false,
+            start_date: null,
+            end_date: null,
+          },
           { where: { stripe_subscription_id: stripeSubId } },
         );
+
+        if (happen) {
+          await clearCacheData(`premium:${userId}`);
+        }
 
         break;
       }
 
-      case "invoice.paid":
+      case "invoice.paid": {
         console.log("🧾 Invoice Paid");
 
         const invoice = event.data.object;
@@ -244,8 +263,9 @@ const stripeWebhook = async (req, res, next) => {
         );
 
         break;
+      }
 
-      case "charge.failed":
+      case "charge.failed": {
         console.log("❌ Payment Failed");
         const invoiceChargeFailed = event.data.object;
 
@@ -261,6 +281,7 @@ const stripeWebhook = async (req, res, next) => {
         );
 
         break;
+      }
 
       // case "customer.subscription.updated":
       //   console.log("⬆️ Customer subscription updated");

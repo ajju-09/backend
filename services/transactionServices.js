@@ -17,9 +17,20 @@ const updateTransaction = async (value, query) => {
   return data;
 };
 
+const findAllTransactions = async (query) => {
+  const data = await Transactions.findAll(query);
+  return data;
+};
+
+const findOneTransaction = async (query) => {
+  const data = await Transactions.findOne(query);
+  return data;
+};
 module.exports = {
   Transactions,
   createTransaction,
   findTransactionByKey,
   updateTransaction,
+  findAllTransactions,
+  findOneTransaction,
 };
