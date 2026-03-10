@@ -22,10 +22,16 @@ const incrementChatSetting = async (value, query) => {
   return data;
 };
 
+const chatCount = async (query) => {
+  const count = await ChatSetting.count(query);
+  return count;
+};
+
 module.exports = {
   ChatSetting,
   findOneChatSetting,
   updateChatSetting,
   BulkCreateChatSetting,
   incrementChatSetting,
+  chatCount,
 };

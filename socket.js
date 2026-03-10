@@ -68,9 +68,9 @@ const initialize = async (server) => {
         const socketData = typeof data === "string" ? JSON.parse(data) : data;
 
         io.emit("typing", data);
-        if (socketData?.rid) {
-          io.emit(`${socketData.rid}_typing`, data);
-        }
+        // if (socketData?.rid) {
+        //   io.emit(`${socketData.rid}_typing`, data);
+        // }
       });
 
       socket.on("fe_seen", async ({ cid, uid }) => {

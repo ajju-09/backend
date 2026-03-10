@@ -173,8 +173,6 @@ const getMyChats = async (req, res, next) => {
         const unreadCount =
           (await getCacheData(`unread:${userId}:${chat.id}`)) || 0;
 
-        console.log("get unread count from chat controller", unreadCount);
-
         return {
           ...chat,
           last_message: decryptedText,

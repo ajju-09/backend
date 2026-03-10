@@ -1,6 +1,10 @@
 const { Op, where } = require("sequelize");
 const { logger } = require("../helper/logger");
-const { findChatByKey, updateChat } = require("../services/chatServices");
+const {
+  findChatByKey,
+  updateChat,
+  findOneChat,
+} = require("../services/chatServices");
 const { Users, findUserByKey } = require("../services/userServices");
 const { getIo } = require("../socket");
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
@@ -10,6 +14,7 @@ const {
   findAllMessage,
   updateMessage,
   findMessageByKey,
+  countMessages,
 } = require("../services/messageService");
 const db = require("../models");
 const {
@@ -167,10 +172,37 @@ const sendMessage = async (req, res, next) => {
       );
 
       const unreadCount = await getCacheData(`unread:${receiverId}:${chatId}`);
-      console.log("Unread count in real time", unreadCount);
 
       io.to(receiverId.toString()).emit("unread_count", {
         chatId: chatId,
+        unread_count: Number(unreadCount),
+      });
+
+      const chatData = await findOneChat({
+        where: {
+          [Op.or]: [{ user_one: senderId }, { user_two: senderId }],
+          id: chatId,
+        },
+        include: [
+          {
+            model: Users,
+            as: "UserOne",
+            attributes: ["id", "name", "photo", "is_online"],
+          },
+          {
+            model: Users,
+            as: "UserTwo",
+            attributes: ["id", "name", "photo", "is_online"],
+          },
+        ],
+      });
+
+      const decryptedText = decryptMessage(chatData.last_message);
+
+      chatData.last_message = decryptedText;
+
+      io.to(receiverId.toString()).emit("chat_update", {
+        chat: chatData,
         unread_count: Number(unreadCount),
       });
     }
@@ -377,32 +409,64 @@ const pinMessage = async (req, res, next) => {
     await clearCacheData(`mediaInChat:${msg.chat_id}:${userId}`);
     await clearCacheData(`docsInChat:${msg.chat_id}:${userId}`);
 
-    if (msg.is_pin) {
-      msg.is_pin = false;
-      await msg.save();
+    const subscription = await findOneSubscription({
+      where: { user_id: userId },
+    });
 
+    if (!subscription) {
       return res
-        .status(200)
-        .json({ message: "Message unpin successfully", success: true });
+        .status(404)
+        .json({ message: "There no subscription for you", success: false });
     }
 
-    const pinMsg = await findAllMessage({
+    if (msg.is_pin === true) {
+      await updateMessage(
+        { is_pin: false },
+        {
+          where: {
+            id: msgId,
+            chat_id: chatId,
+          },
+        },
+      );
+
+      return res.status(200).json({
+        message: "Message unpinned successfully",
+        success: true,
+      });
+    }
+
+    const pinLimit = subscription.plan_id === 2 ? 3 : 1;
+
+    const pinCount = await countMessages({
       where: {
         chat_id: chatId,
         is_pin: true,
+        delete_for_all: false,
       },
-      order: [["id", "ASC"]],
-      limit: 3,
     });
 
-    if (pinMsg.length >= 3) {
-      await pinMsg[0].update({ is_pin: false });
+    if (pinCount >= pinLimit) {
+      return res.status(400).json({
+        message: `You can only pin ${pinLimit} messages`,
+        success: false,
+      });
     }
 
-    msg.is_pin = true;
-    await msg.save();
+    await updateMessage(
+      { is_pin: true },
+      {
+        where: {
+          id: msgId,
+          chat_id: chatId,
+          delete_for_all: false,
+        },
+      },
+    );
 
-    res.status(200).json({ message: "Msg pinned successfully", success: true });
+    return res
+      .status(200)
+      .json({ message: "Msg pinned successfully", success: true });
   } catch (error) {
     next(error);
   }

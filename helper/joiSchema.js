@@ -101,6 +101,19 @@ const updateSchema = Joi.object({
       }),
     otherwise: Joi.forbidden(),
   }),
+
+  confirmPassword: Joi.when("action", {
+    is: "resetpassword",
+    then: Joi.string()
+      .min(6)
+      .required()
+      .pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).+$/)
+      .messages({
+        "string.pattern.base":
+          "Password must contain uppercase, lowercase and number",
+      }),
+    otherwise: Joi.forbidden(),
+  }),
 });
 
 const sendOtpSchema = Joi.object({

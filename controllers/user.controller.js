@@ -44,27 +44,37 @@ const register = async (req, res, next) => {
     const { name, email, phone, password } = value;
 
     // email and phone is unique
-    const existedUser = await findSingleUser({ where: { email } });
+    const existedEmail = await findSingleUser({ where: { email } });
     const existedPhone = await findSingleUser({ where: { phone } });
 
     // check for this email already exists or not
-    if (existedUser && existedPhone) {
+    if (existedEmail && existedPhone) {
       await updateUser(
-        { isDeleted: false, isLogin: true },
+        {
+          name: name,
+          password: await bcrypt.hash(password, 10),
+          phone: phone,
+          isDeleted: false,
+        },
         { where: { email: email } },
       );
 
+      if (existedEmail.isVerified === true) {
+        existedEmail.isLogin = true;
+        await existedEmail.save();
+      }
+
       const data = {
-        id: existedUser.id,
-        name: existedUser.name,
-        email: existedUser.email,
-        phone: existedUser.phone,
-        is_online: existedUser.is_online,
-        last_seen: existedUser.last_seen,
-        isDeleted: existedUser.isDeleted,
-        isLogin: existedUser.isLogin,
-        createdAt: existedUser.createdAt,
-        updatedAt: existedUser.updatedAt,
+        id: existedEmail.id,
+        name: existedEmail.name,
+        email: existedEmail.email,
+        phone: existedEmail.phone,
+        is_online: existedEmail.is_online,
+        last_seen: existedEmail.last_seen,
+        isDeleted: existedEmail.isDeleted,
+        isLogin: existedEmail.isLogin,
+        createdAt: existedEmail.createdAt,
+        updatedAt: existedEmail.updatedAt,
       };
 
       return res.status(200).json({
@@ -298,7 +308,15 @@ const update = async (req, res, next) => {
 
     logger.info(`${req.method} ${req.url}`);
 
-    const { action, name, email, phone, newPassword, oldPassword } = value;
+    const {
+      action,
+      name,
+      email,
+      phone,
+      newPassword,
+      oldPassword,
+      confirmPassword,
+    } = value;
 
     // find user
     const user = await findUserByKey(id);
@@ -318,7 +336,6 @@ const update = async (req, res, next) => {
         };
 
         // update it in database
-
         await updateUser(updatedData, {
           where: { id: id },
         });
@@ -328,6 +345,12 @@ const update = async (req, res, next) => {
           .json({ message: "User updated successfully ", success: true });
 
       case "resetpassword":
+        if (newPassword !== confirmPassword) {
+          return res.status(400).json({
+            message: "New password and Confirm password does not match ",
+          });
+        }
+
         if (oldPassword === newPassword) {
           return res.status(400).json({
             message: "Old password and New password not be same",

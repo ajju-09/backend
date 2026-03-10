@@ -27,6 +27,17 @@ const findMessageByKey = async (key) => {
   return data;
 };
 
+const findAndCountAllMessages = async (query) => {
+  const { count, rows } = await Message.findAndCountAll(query);
+  console.log("Count", count, "rows", rows);
+  return { count, rows };
+};
+
+const countMessages = async (query) => {
+  const data = await Message.count(query);
+  return data;
+};
+
 module.exports = {
   Message,
   findOneMessage,
@@ -34,4 +45,6 @@ module.exports = {
   updateMessage,
   findAllMessage,
   findMessageByKey,
+  findAndCountAllMessages,
+  countMessages,
 };

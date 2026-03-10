@@ -1,7 +1,12 @@
 const { logger } = require("../helper/logger");
 const { findChatByKey, updateChat } = require("../services/chatServices");
-const { findOneChatSetting } = require("../services/chatSettingServices");
+const {
+  findOneChatSetting,
+  chatCount,
+  updateChatSetting,
+} = require("../services/chatSettingServices");
 const { updateMessage } = require("../services/messageService");
+const { findOneSubscription } = require("../services/subscriptionService");
 
 // pin chat
 // PATCH /api/v2/chatsetting/pin/:chatId
@@ -43,13 +48,67 @@ const pinChat = async (req, res, next) => {
         .json({ message: "Chat setting not found", success: false });
     }
 
-    chatsetting.is_pin = !chatsetting.is_pin;
-    await chatsetting.save();
+    const subscription = await findOneSubscription({
+      where: { user_id: userId },
+    });
 
-    res.status(200).json({
-      message: chatsetting.is_pin ? "chat pin" : "chat unpin",
+    if (!subscription) {
+      return res
+        .status(404)
+        .json({ message: "There is no subscription for you", success: false });
+    }
+
+    if (chatsetting.is_pin === true) {
+      await updateChatSetting(
+        { is_pin: false },
+        {
+          where: {
+            chat_id: chatId,
+            user_id: userId,
+            is_delete: false,
+          },
+        },
+      );
+
+      return res
+        .status(200)
+        .json({ message: "Chat unpin sucessfully", success: true });
+    }
+
+    const chatPinLimit = subscription.plan_id === 2 ? 5 : 3;
+
+    const chatPinCount = await chatCount({
+      where: {
+        chat_id: chatId,
+        user_id: userId,
+        is_pin: true,
+        is_delete: false,
+      },
+    });
+
+    console.log("Chat pin Limit", chatPinLimit);
+    console.log("Chain pin count", chatPinCount);
+
+    if (chatPinCount >= chatPinLimit) {
+      return res
+        .status(400)
+        .json({ message: `You can only pin ${chatPinLimit} chats` });
+    }
+
+    await updateChatSetting(
+      { is_pin: true },
+      {
+        where: {
+          chat_id: chatId,
+          user_id: userId,
+          is_delete: false,
+        },
+      },
+    );
+
+    return res.status(200).json({
+      message: "Chat pin successfully",
       success: true,
-      pin: chatsetting.is_pin,
     });
   } catch (error) {
     next(error);
