@@ -156,6 +156,25 @@ const sendMessage = async (req, res, next) => {
       reply_to: Number(replyTo) || null,
     });
 
+    if (msg) {
+      await increment(`unread:${receiverId}:${chatId}`);
+      console.log(
+        "Set cache for unread count",
+        "receiver",
+        receiverId,
+        "chat id",
+        chatId,
+      );
+
+      const unreadCount = await getCacheData(`unread:${receiverId}:${chatId}`);
+      console.log("Unread count in real time", unreadCount);
+
+      io.to(receiverId.toString()).emit("unread_count", {
+        chatId: chatId,
+        unread_count: Number(unreadCount),
+      });
+    }
+
     await updateChat(
       { last_message: msg.text, last_message_time: new Date() },
       { where: { id: chatId } },
@@ -182,11 +201,6 @@ const sendMessage = async (req, res, next) => {
     console.log("==============================");
     console.log("receiver id", receiverId);
     console.log("==============================");
-
-    io.to(receiverId.toString()).emit("new_message", {
-      msg: responseMsg,
-      reply_to: msg.reply_to,
-    });
 
     await publisher.publish("MESSAGES", JSON.stringify(responseMsg));
     console.log("Message publish on redis");

@@ -21,6 +21,7 @@ const uploadToCloudinary = require("../helper/uploadToCloudinary");
 const { getIo } = require("../socket");
 const sendEmail = require("../helper/sendMail");
 const { generateOtp, expiresIn } = require("../helper/generateOtp");
+const { createSubscription } = require("../services/subscriptionService");
 
 // register
 // POST /api/v1/users/register
@@ -100,6 +101,13 @@ const register = async (req, res, next) => {
     };
 
     if (newUser) {
+      await createSubscription({
+        user_id: userDetail.id,
+        plan_id: 1,
+        status: "Active",
+        auto_renew: true,
+      });
+
       return res.status(200).json({
         message: "User registered successfully",
         success: true,
@@ -698,6 +706,29 @@ const forgotPassword = async (req, res, next) => {
   }
 };
 
+// GET /api/v1/users/get-stripe-id
+const getStripeId = async (req, res, next) => {
+  try {
+    const userId = req.id;
+
+    const user = await findUserByKey(userId);
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
+    }
+
+    return res.status(200).json({
+      message: "Stripe customer id",
+      success: true,
+      id: user.stripe_customer_id,
+    });
+  } catch (error) {
+    next();
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -711,4 +742,5 @@ module.exports = {
   verifyOtp,
   sendOtp,
   forgotPassword,
+  getStripeId,
 };

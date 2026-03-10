@@ -1,14 +1,12 @@
 const { setCacheData, getCacheData } = require("../../redis/redis.client");
-const { findPlanByKey } = require("../../services/planServices");
+const { findAllPlan } = require("../../services/planServices");
 
 // get all plans
 // GET /api/v3/plan/getall
 // access private
 const getAllPlans = async (req, res, next) => {
   try {
-    const { planId } = req.body;
-
-    const cacheData = await getCacheData(`plan:${planId}`);
+    const cacheData = await getCacheData("plan");
 
     if (cacheData) {
       return res
@@ -16,7 +14,7 @@ const getAllPlans = async (req, res, next) => {
         .json({ message: "Fetched all Plans", success: true, data: cacheData });
     }
 
-    const plan = await findPlanByKey(planId);
+    const plan = await findAllPlan();
 
     if (!plan) {
       return res
@@ -24,7 +22,7 @@ const getAllPlans = async (req, res, next) => {
         .json({ message: "Plan not found", success: false });
     }
 
-    await setCacheData(`plan:${planId}`, plan, 604800);
+    await setCacheData("plan", plan, 604800);
 
     return res
       .status(200)

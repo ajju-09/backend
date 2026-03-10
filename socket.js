@@ -4,6 +4,8 @@ const jwt = require("jsonwebtoken");
 const { findOneMessage } = require("./services/messageService");
 const { updateChatSetting } = require("./services/chatSettingServices");
 const { subscriber } = require("./config/redis");
+const { addUserSocket, removeUserSocket } = require("./helper/socketUsers");
+const { clearCacheData } = require("./redis/redis.client");
 
 let io;
 // const userSocketMap = new Map();
@@ -13,22 +15,6 @@ const initialize = async (server) => {
       origin: "*",
       methods: ["GET", "POST"],
     },
-  });
-
-  await subscriber.subscribe("MESSAGES", (message) => {
-    try {
-      const parsedMessage = JSON.parse(message);
-
-      const receiverId = parsedMessage.receiver_id;
-
-      io.to(receiverId.toString()).emit("new_message", {
-        msg: parsedMessage,
-      });
-
-      console.log("Message received from Redis");
-    } catch (error) {
-      console.log("Redis subscriber error", error.message);
-    }
   });
 
   io.on("connection", async (socket) => {
@@ -59,47 +45,26 @@ const initialize = async (server) => {
       const userInfo = await findUserByKey(userId);
 
       if (userInfo?.id) {
-        // userSocketMap.set(userId.toString(), socket.id);
-
-        // const onlineUsers = Array.from(userSocketMap.keys());
-        // console.log("==============================");
-        // console.log(onlineUsers);
-        // console.log("==============================");
-
-        // socket.emit("online_users", onlineUsers);
-
-        // console.log("==============================");
-        // console.log(userSocketMap);
-        // console.log("==============================");
-
         socket.join(userId.toString());
         console.log("==============================");
         console.log("userId", userId);
         console.log("==============================");
 
-        // await updateUser(
-        //   { is_online: userInfo.is_online + 1, last_seen: null },
-        //   { where: { id: userInfo.id } },
-        // );
-        await updateUser(
-          { is_online: true, last_seen: null },
-          { where: { id: userInfo.id } },
-        );
+        const socketCount = await addUserSocket(userId, socket.id);
 
-        if (!userInfo.is_online) {
-          await connect(userInfo);
+        if (socketCount === 1) {
+          await updateUser(
+            { is_online: true, last_seen: null },
+            { where: { id: userInfo.id } },
+          );
         }
+
+        await connect(userInfo);
       } else {
         socket.disconnect();
       }
 
       socket.on("fe_typing", (data) => {
-        // Example
-        // {
-        //   "rid": "chat_id",
-        //   "uid": "target_user_id",
-        //   "typing": 1 || 0
-        // }
         const socketData = typeof data === "string" ? JSON.parse(data) : data;
 
         io.emit("typing", data);
@@ -116,6 +81,8 @@ const initialize = async (server) => {
 
         if (!lastMsg) return;
 
+        await clearCacheData(`unread:${uid}:${cid}`);
+        console.log("Clear Unread Count in socket.js", "cid", cid, "uid", uid);
         await updateChatSetting(
           { lastSeenMsgId: lastMsg.id, lastSeen: new Date(), unread_count: 0 },
           {
@@ -135,27 +102,20 @@ const initialize = async (server) => {
       // Disconnect
       socket.on("disconnect", async () => {
         if (userId) {
-          // userSocketMap.delete(userId.toString());
-
           const userInfo = await findUserByKey(userId);
 
           if (userInfo) {
-            // await updateUser(
-            //   {
-            //     is_online: userInfo.is_online <= 0 ? 0 : userInfo.is_online - 1,
-            //     last_seen: new Date(),
-            //   },
-            //   { where: { id: userInfo.id } },
-            // );
-            await updateUser(
-              {
-                is_online: false,
-                last_seen: new Date(),
-              },
-              { where: { id: userInfo.id } },
-            );
+            const socketCount = await removeUserSocket(userId, socket.id);
 
-            if (userInfo.is_online - 1 <= 0) {
+            if (socketCount === 0) {
+              await updateUser(
+                {
+                  is_online: false,
+                  last_seen: new Date(),
+                },
+                { where: { id: userInfo.id } },
+              );
+
               await disconnect(userInfo.id);
             }
 
@@ -168,6 +128,23 @@ const initialize = async (server) => {
     } catch (error) {
       console.log("Error in socket server", error.message);
       return socket.disconnect();
+    }
+  });
+
+  await subscriber.subscribe("MESSAGES", (message) => {
+    try {
+      const parsedMessage = JSON.parse(message);
+
+      const receiverId = parsedMessage.receiver_id;
+
+      io.to(receiverId.toString()).emit("new_message", {
+        msg: parsedMessage,
+        reply_to: parsedMessage.reply_to,
+      });
+
+      console.log("Message received from Redis");
+    } catch (error) {
+      console.log("Redis subscriber error", error.message);
     }
   });
 };
@@ -184,7 +161,5 @@ const disconnect = async (userId) => {
 };
 
 const getIo = () => io;
-
-// const getUserSocketMap = () => userSocketMap;
 
 module.exports = { initialize, getIo };

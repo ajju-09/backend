@@ -17,6 +17,7 @@ const getAllMedia = async (req, res, next) => {
     const cacheData = await getCacheData(`media:${userId}`);
 
     if (cacheData) {
+      console.log("Cached Hits here in get all media");
       return res
         .status(200)
         .json({ message: "get all media", success: true, data: cacheData });
@@ -24,12 +25,16 @@ const getAllMedia = async (req, res, next) => {
 
     const allMedia = await findAllMessage({
       where: {
-        [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
-        [Op.or]: [
-          { image_url: { [Op.like]: "%.jpg%" } },
-          { image_url: { [Op.like]: "%.jpeg%" } },
-          { image_url: { [Op.like]: "%.png%" } },
-          { image_url: { [Op.like]: "%.mp4%" } },
+        [Op.and]: [
+          { [Op.or]: [{ sender_id: userId }, { receiver_id: userId }] },
+          {
+            [Op.or]: [
+              { image_url: { [Op.like]: "%.jpg%" } },
+              { image_url: { [Op.like]: "%.jpeg%" } },
+              { image_url: { [Op.like]: "%.png%" } },
+              { image_url: { [Op.like]: "%.mp4%" } },
+            ],
+          },
         ],
       },
       order: [["createdAt", "DESC"]],
@@ -63,6 +68,7 @@ const getAllDocs = async (req, res, next) => {
     const cacheData = await getCacheData(`docs:${userId}`);
 
     if (cacheData) {
+      console.log("Cached Hits here in get all docs");
       return res
         .status(200)
         .json({ message: "get all docs", success: true, data: cacheData });
@@ -70,13 +76,17 @@ const getAllDocs = async (req, res, next) => {
 
     const allDocs = await findAllMessage({
       where: {
-        [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
-        [Op.or]: [
-          { image_url: { [Op.like]: "%.docx%" } },
-          { image_url: { [Op.like]: "%.doc%" } },
-          { image_url: { [Op.like]: "%.ppt%" } },
-          { image_url: { [Op.like]: "%.pdf%" } },
-          { image_url: { [Op.like]: "%.mp3%" } },
+        [Op.and]: [
+          { [Op.or]: [{ sender_id: userId }, { receiver_id: userId }] },
+          {
+            [Op.or]: [
+              { image_url: { [Op.like]: "%.docx%" } },
+              { image_url: { [Op.like]: "%.doc%" } },
+              { image_url: { [Op.like]: "%.ppt%" } },
+              { image_url: { [Op.like]: "%.pdf%" } },
+              { image_url: { [Op.like]: "%.mp3%" } },
+            ],
+          },
         ],
       },
       order: [["createdAt", "DESC"]],
@@ -145,6 +155,7 @@ const getAllLinks = async (req, res, next) => {
 // private access
 const getAllMediaInChat = async (req, res, next) => {
   try {
+    const userId = req.id;
     const { chatId } = req.params;
 
     logger.info(`${req.method} ${req.url}`);
@@ -210,6 +221,7 @@ const getAllMediaInChat = async (req, res, next) => {
 // private access
 const getAllDocsInChat = async (req, res, next) => {
   try {
+    const userId = req.id;
     const { chatId } = req.params;
 
     logger.info(`${req.method} ${req.url}`);

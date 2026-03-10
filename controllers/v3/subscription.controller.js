@@ -1,9 +1,10 @@
 const sendEmail = require("../../helper/sendMail");
 const { clearCacheData } = require("../../redis/redis.client");
-const { findPlanByKey } = require("../../services/planServices");
+const { findPlanByKey, Plans } = require("../../services/planServices");
 const {
   createSubscription,
   updateSubscription,
+  findOneSubscription,
 } = require("../../services/subscriptionService");
 const {
   createTransaction,
@@ -62,6 +63,7 @@ const checkoutSession = async (req, res, next) => {
       status: "Pending",
     });
 
+    // creating customer in stripe
     const customer = await stripe.customers.create({
       email: user.email,
       name: user.name,
@@ -77,6 +79,7 @@ const checkoutSession = async (req, res, next) => {
       },
     );
 
+    // creating checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
       mode: "subscription",
@@ -127,13 +130,13 @@ const stripeWebhook = async (req, res, next) => {
     next(error);
   }
 
-  const session = event.data.object;
-
   try {
     switch (event.type) {
       case "checkout.session.completed": {
         console.log("✅ Checkout session completed");
 
+        const session = event.data.object;
+        const sub = await stripe.subscriptions.retrieve(session.subscription);
         const { userId, planId, transactionId } = session.metadata;
 
         const plan = await findPlanByKey(planId);
@@ -156,38 +159,38 @@ const stripeWebhook = async (req, res, next) => {
           { where: { id: transactionId } },
         );
 
-        const updateSub = await updateSubscription(
-          {
-            start_date: null,
-            end_date: null,
-            status: "Expired",
-            auto_renew: false,
-          },
-          {
-            where: {
-              user_id: userId,
-              status: "Active",
-            },
-          },
+        const startDate = new Date(
+          sub.items?.data[0]?.current_period_start * 1000,
         );
+        const endDate = new Date(sub.items?.data[0]?.current_period_end * 1000);
 
-        if (updateSub) {
-          await clearCacheData(`premium:${userId}`);
-        }
-
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + plan.duration_days);
-
-        await createSubscription({
-          user_id: userId,
-          plan_id: planId,
-          stripe_subscription_id: session.subscription,
-          start_date: startDate,
-          end_date: endDate,
-          status: "Active",
-          auto_renew: true,
+        const existingSub = await findOneSubscription({
+          where: { user_id: userId },
         });
+
+        if (existingSub) {
+          await updateSubscription(
+            {
+              plan_id: planId,
+              stripe_subscription_id: session.subscription,
+              start_date: Number(planId) === 2 ? startDate : null,
+              end_date: Number(planId) === 2 ? endDate : null,
+              status: "Active",
+              auto_renew: true,
+            },
+            { where: { user_id: userId } },
+          );
+        } else {
+          await createSubscription({
+            user_id: userId,
+            plan_id: planId,
+            stripe_subscription_id: session.subscription,
+            start_date: Number(planId) === 2 ? startDate : null,
+            end_date: Number(planId) === 2 ? endDate : null,
+            status: "Active",
+            auto_renew: true,
+          });
+        }
 
         break;
       }
@@ -200,11 +203,17 @@ const stripeWebhook = async (req, res, next) => {
       case "invoice.payment_failed": {
         console.log("❌ Payment failed");
 
-        const subscriptionId = session.subscription;
+        const invoice = event.data.object;
+
+        const subId = invoice.parent?.subscription_details?.subscription;
+        if (!subId) {
+          console.log("No subscription found on invoice");
+          break;
+        }
 
         await updateTransaction(
           { status: "Failed" },
-          { where: { stripe_payment_id: subscriptionId } },
+          { where: { stripe_payment_id: subId } },
         );
 
         break;
@@ -213,20 +222,28 @@ const stripeWebhook = async (req, res, next) => {
       case "customer.subscription.deleted": {
         console.log("🚫 Subscription cancelled");
 
-        const stripeSubId = session.id;
+        const invoice = event.data.object;
 
-        const happen = await updateSubscription(
+        console.log("Invoice in customer subscription deleted", invoice);
+
+        const subId = invoice.parent?.subscription_details?.subscription;
+
+        await updateSubscription(
           {
             status: "Expired",
             auto_renew: false,
             start_date: null,
             end_date: null,
           },
-          { where: { stripe_subscription_id: stripeSubId } },
+          { where: { stripe_subscription_id: subId } },
         );
 
-        if (happen) {
-          await clearCacheData(`premium:${userId}`);
+        const sub = await findOneSubscription({
+          where: { stripe_subscription_id: subId },
+        });
+
+        if (sub) {
+          await clearCacheData(`premium:${sub.user_id}`);
         }
 
         break;
@@ -236,6 +253,12 @@ const stripeWebhook = async (req, res, next) => {
         console.log("🧾 Invoice Paid");
 
         const invoice = event.data.object;
+
+        const isFirstPayment = invoice.billing_reason === "subscription_create";
+
+        if (isFirstPayment) {
+          console.log("First subscription payment");
+        }
 
         const user = await findSingleUser({
           where: { stripe_customer_id: invoice.customer },
@@ -283,23 +306,42 @@ const stripeWebhook = async (req, res, next) => {
         break;
       }
 
-      // case "customer.subscription.updated":
-      //   console.log("⬆️ Customer subscription updated");
+      case "customer.subscription.updated": {
+        console.log("⬆️ Customer Updated Subscription");
+        const invoice = event.data.object;
 
-      //   const updateInvoice = event.data.object;
-      //   const userInvoice = await findSingleUser({
-      //     where: { stripe_customer_id: updateInvoice.customer },
-      //   });
+        const subId = invoice.id;
 
-      //   await updateSubscription(
-      //     {
-      //       start_date: null,
-      //       end_date: null,
-      //       status: "Expired",
-      //     },
-      //     { where: { user_id: userInvoice.id } },
-      //   );
-      //   break;
+        const sub = await stripe.subscriptions.retrieve(subId);
+
+        if (sub?.cancellation_details?.reason === "cancellation_requested") {
+          await updateSubscription(
+            { status: "Cancel", start_date: null, end_date: null, plan_id: 1 },
+            {
+              where: { stripe_subscription_id: subId },
+            },
+          );
+        }
+
+        const startDate = new Date(
+          sub.items?.data[0]?.current_period_start * 1000,
+        );
+        const endDate = new Date(sub.items?.data[0]?.current_period_end * 1000);
+
+        if (sub?.cancellation_details?.reason === null) {
+          await updateSubscription(
+            {
+              status: "Active",
+              start_date: startDate,
+              end_date: endDate,
+              plan_id: 2,
+            },
+            {
+              where: { stripe_subscription_id: subId },
+            },
+          );
+        }
+      }
 
       default:
         console.log(`Unhandled event type ${event.type}`);
@@ -317,15 +359,69 @@ const stripeWebhook = async (req, res, next) => {
 // private access
 const customerBilling = async (req, res, next) => {
   try {
+    if (req.params === null) {
+      return res
+        .status(400)
+        .json({ message: "There is no customer id for you", success: false });
+    }
+
+    if (!req.params.customerId) {
+      return res
+        .status(400)
+        .json({ message: "Customer ID required", success: false });
+    }
+
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: req.params.customerId,
       return_url: `${process.env.CLIENT_URL}/`,
     });
 
-    res.redirect(portalSession.url);
+    return res.status(200).json({
+      message: "Billing Session",
+      success: true,
+      url: portalSession.url,
+    });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { checkoutSession, stripeWebhook, customerBilling };
+// get user subscription
+// GET /api/v3/subscription/get-subscription
+// private access
+const getUserSubscription = async (req, res, next) => {
+  try {
+    const userId = req.id;
+
+    const subscription = await findOneSubscription({
+      where: { user_id: userId },
+      include: [
+        {
+          model: Plans,
+          attributes: ["id", "type"],
+        },
+      ],
+    });
+
+    if (!subscription) {
+      return res
+        .status(400)
+        .json({ message: "There is no subscription for you", success: false });
+    }
+
+    return res.status(200).json({
+      message: "Subscription fetched successfully",
+      success: true,
+      data: subscription,
+    });
+  } catch (error) {
+    next();
+  }
+};
+
+module.exports = {
+  checkoutSession,
+  stripeWebhook,
+  customerBilling,
+  getUserSubscription,
+};

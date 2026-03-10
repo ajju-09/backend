@@ -12,4 +12,9 @@ const findOnePlan = async (query) => {
   return data;
 };
 
-module.exports = { Plans, findPlanByKey, findOnePlan };
+const findAllPlan = async () => {
+  const data = await Plans.findAll();
+  return data;
+};
+
+module.exports = { Plans, findPlanByKey, findOnePlan, findAllPlan };

@@ -13,6 +13,7 @@ const {
   ChatSetting,
 } = require("../services/chatSettingServices");
 const { decryptMessage } = require("../helper/cipherMessage");
+const { getCacheData } = require("../redis/redis.client");
 
 // create chat
 // POST /api/v1/chat/create
@@ -146,14 +147,7 @@ const getMyChats = async (req, res, next) => {
         {
           model: ChatSetting,
           where: { user_id: userId, is_delete: false },
-          attributes: [
-            "user_id",
-            "is_pin",
-            "is_mute",
-            "is_block",
-            "unread_count",
-            "is_delete",
-          ],
+          attributes: ["user_id", "is_pin", "is_mute", "is_block", "is_delete"],
         },
         {
           model: Users,
@@ -170,10 +164,32 @@ const getMyChats = async (req, res, next) => {
       order: [["last_message_time", "DESC"]],
     });
 
-    const decryptedChat = chats.map((item) => {
-      const decryptedText = decryptMessage(item.last_message || "");
-      return { ...item.toJSON(), last_message: decryptedText };
-    });
+    const decryptedChat = await Promise.all(
+      chats.map(async (item) => {
+        const chat = item.toJSON();
+
+        const decryptedText = decryptMessage(chat.last_message || "");
+
+        const unreadCount =
+          (await getCacheData(`unread:${userId}:${chat.id}`)) || 0;
+
+        console.log("get unread count from chat controller", unreadCount);
+
+        return {
+          ...chat,
+          last_message: decryptedText,
+          unread_count: Number(unreadCount),
+        };
+      }),
+    );
+
+    // const decryptedChat = chats.map((item) => {
+    //   const decryptedText = decryptMessage(item.last_message || "");
+    //   return { ...item.toJSON(), last_message: decryptedText };
+    // });
+
+    // const count = await getCacheData(`unread:${userId}:${decryptedChat.id}`);
+    // console.log("get unread count from chat controller", count);
 
     res
       .status(200)
