@@ -8,11 +8,6 @@ const {
 const { decryptMessage } = require("../../helper/cipherMessage");
 const { logger } = require("../../helper/logger");
 const { Chats } = require("../../services/chatServices");
-const {
-  setCacheData,
-  getCacheData,
-  clearCacheData,
-} = require("../../redis/redis.client");
 
 // get all notificatio for logged in user
 // GET /api/v2/notification/get-all
@@ -20,22 +15,14 @@ const {
 const getAllNotification = async (req, res, next) => {
   try {
     const userId = req.id;
+    const { page = 1, limit = 2 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
 
-    const cacheData = await getCacheData(`noti:${userId}`);
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
 
-    if (cacheData) {
-      const decryptedData = cacheData.map((item) => {
-        const decryptedData = decryptMessage(item.title || "");
-        return { ...item, title: decryptedData };
-      });
-      return res.status(200).json({
-        message: "Fetched all notification successfully",
-        success: true,
-        data: decryptedData,
-      });
-    }
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     const getAll = await findAllNotification({
       where: { receiver_id: userId },
@@ -52,6 +39,8 @@ const getAllNotification = async (req, res, next) => {
       ],
       attributes: ["id", "title", "message", "seen"],
       order: [["createdAt", "DESC"]],
+      limit: pageSize,
+      offset: PageOffset,
     });
 
     if (!getAll) {
@@ -59,8 +48,6 @@ const getAllNotification = async (req, res, next) => {
         .status(404)
         .json({ message: "There is no notification for you", success: false });
     }
-
-    await setCacheData(`noti:${userId}`, getAll);
 
     const decryptedData = getAll.map((item) => {
       const plainText = decryptMessage(item.title);
@@ -82,7 +69,6 @@ const getAllNotification = async (req, res, next) => {
 // private access
 const seenNotification = async (req, res, next) => {
   try {
-    const userId = req.id;
     const { notiId } = req.params;
 
     logger.info(`${req.method} ${req.url}`);
@@ -92,8 +78,6 @@ const seenNotification = async (req, res, next) => {
         .status(400)
         .json({ message: "Notification id required", success: false });
     }
-
-    await clearCacheData(`noti:${userId}`);
 
     await updateNotification(
       {
@@ -138,8 +122,6 @@ const deleteNotification = async (req, res, next) => {
         .json({ message: "Not Authorized", success: false });
     }
 
-    await clearCacheData(`noti:${userId}`);
-
     await destroyNotification({ where: { id: notiId, receiver_id: userId } });
 
     res
@@ -149,4 +131,5 @@ const deleteNotification = async (req, res, next) => {
     next(error);
   }
 };
+
 module.exports = { getAllNotification, seenNotification, deleteNotification };

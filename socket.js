@@ -65,7 +65,7 @@ const initialize = async (server) => {
       }
 
       socket.on("fe_typing", (data) => {
-        const socketData = typeof data === "string" ? JSON.parse(data) : data;
+        // const socketData = typeof data === "string" ? JSON.parse(data) : data;
 
         io.emit("typing", data);
         // if (socketData?.rid) {
@@ -74,29 +74,45 @@ const initialize = async (server) => {
       });
 
       socket.on("fe_seen", async ({ cid, uid }) => {
-        const lastMsg = await findOneMessage({
-          where: { chat_id: cid },
-          order: [["createdAt", "DESC"]],
-        });
-
-        if (!lastMsg) return;
-
         await clearCacheData(`unread:${uid}:${cid}`);
 
-        await updateChatSetting(
-          { lastSeenMsgId: lastMsg.id, lastSeen: new Date(), unread_count: 0 },
-          {
-            where: {
-              chat_id: cid,
-              user_id: uid,
-            },
-          },
-        );
+        try {
+          if (!cid || !uid) {
+            console.log("Chat or User Id required");
+          }
 
-        io.to(lastMsg.receiver_id).emit("seen", {
-          cid: lastMsg.chat_id,
-          seenBy: uid,
-        });
+          const lastMsg = await findOneMessage({
+            where: { chat_id: cid },
+            order: [["createdAt", "DESC"]],
+          });
+
+          if (!lastMsg) return;
+
+          await updateChatSetting(
+            {
+              lastSeenMsgId: lastMsg.id,
+              lastSeen: new Date(),
+              unread_count: 0,
+            },
+            {
+              where: {
+                chat_id: cid,
+                user_id: uid,
+              },
+            },
+          );
+
+          io.to(lastMsg.receiver_id).emit("seen", {
+            cid: lastMsg.chat_id,
+            seenBy: uid,
+          });
+        } catch (error) {
+          console.log("Error in fe_seen socket", error.message);
+        }
+      });
+
+      socket.on("msg_delete_for_all", (data) => {
+        io.emit("deleted", data);
       });
 
       // Disconnect

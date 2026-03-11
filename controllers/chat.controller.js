@@ -76,7 +76,7 @@ const createChat = async (req, res, next) => {
         },
       });
 
-      return res.json({
+      return res.status(200).json({
         message: "Chat already exist",
         data: updatedChat,
         receiver: {
@@ -125,9 +125,14 @@ const createChat = async (req, res, next) => {
 const getMyChats = async (req, res, next) => {
   try {
     const userId = req.id;
-    const { limit = 10 } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
+
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     const chats = await findAllChat({
       where: {
@@ -160,7 +165,8 @@ const getMyChats = async (req, res, next) => {
           attributes: ["id", "name", "photo", "is_online"],
         },
       ],
-      limit: Number(limit),
+      limit: pageSize,
+      offset: PageOffset,
       order: [["last_message_time", "DESC"]],
     });
 

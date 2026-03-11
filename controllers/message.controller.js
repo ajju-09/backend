@@ -26,7 +26,10 @@ const {
   MessageSetting,
 } = require("../services/messageSettingServices");
 const { encryptMessage, decryptMessage } = require("../helper/cipherMessage");
-const { incrementChatSetting } = require("../services/chatSettingServices");
+const {
+  incrementChatSetting,
+  findOneChatSetting,
+} = require("../services/chatSettingServices");
 const {
   clearCacheData,
   setCacheData,
@@ -52,6 +55,9 @@ const sendMessage = async (req, res, next) => {
     // check chat exists
     const chat = await findChatByKey(chatId);
     const user = await findUserByKey(senderId);
+    const chatSetting = await findOneChatSetting({
+      where: { user_id: { [Op.ne]: senderId }, chat_id: chatId },
+    });
 
     if (!chat) {
       return res
@@ -69,8 +75,6 @@ const sendMessage = async (req, res, next) => {
     // check for receiverId
     const receiverId =
       chat.user_one === senderId ? chat.user_two : chat.user_one;
-
-    const receiver = await findUserByKey(receiverId);
 
     const subscription = await findOneSubscription({
       where: {
@@ -115,12 +119,6 @@ const sendMessage = async (req, res, next) => {
     let images = [];
 
     if (req.files && req.files.length > 0) {
-      await clearCacheData(`noti:${receiverId}`);
-      await clearCacheData(`media:${senderId}`);
-      await clearCacheData(`docs:${senderId}`);
-      await clearCacheData(`mediaInChat:${chatId}:${senderId}`);
-      await clearCacheData(`docsInChat:${chatId}:${senderId}`);
-
       const uploads = await Promise.all(
         req.files.map(async (file) => await uploadToCloudinary(file)),
       );
@@ -152,6 +150,12 @@ const sendMessage = async (req, res, next) => {
     const encryptedText = encryptMessage(text);
 
     // create new message
+    if (chatSetting.is_block === true) {
+      return res
+        .status(400)
+        .json({ message: "You are block in this chat", success: false });
+    }
+
     const msg = await createMessage({
       sender_id: senderId,
       receiver_id: receiverId,
@@ -243,7 +247,6 @@ const sendMessage = async (req, res, next) => {
     });
 
     if (text !== null && text !== "") {
-      await clearCacheData(`noti:${receiverId}`);
       await createNotification({
         sender_id: senderId,
         receiver_id: receiverId,
@@ -402,13 +405,6 @@ const pinMessage = async (req, res, next) => {
         .json({ message: "Your not authorized", success: false });
     }
 
-    await clearCacheData(`star:${userId}`);
-    await clearCacheData(`starInChat:${msg.chat_id}:${userId}`);
-    await clearCacheData(`media:${userId}`);
-    await clearCacheData(`docs:${userId}`);
-    await clearCacheData(`mediaInChat:${msg.chat_id}:${userId}`);
-    await clearCacheData(`docsInChat:${msg.chat_id}:${userId}`);
-
     const subscription = await findOneSubscription({
       where: { user_id: userId },
     });
@@ -466,7 +462,7 @@ const pinMessage = async (req, res, next) => {
 
     return res
       .status(200)
-      .json({ message: "Msg pinned successfully", success: true });
+      .json({ message: "Msg pinned successfully", success: true, data: msg });
   } catch (error) {
     next(error);
   }
@@ -479,7 +475,6 @@ const deleteForAll = async (req, res, next) => {
   try {
     const userId = req.id;
     const { msgId } = req.params;
-    const io = getIo();
 
     logger.info(`${req.method} ${req.url}`);
 
@@ -497,25 +492,10 @@ const deleteForAll = async (req, res, next) => {
         .json({ message: "Sender can delete for everyone", success: false });
     }
 
-    await clearCacheData(`star:${userId}`);
-    await clearCacheData(`starInChat:${msg.chat_id}:${userId}`);
-    await clearCacheData(`media:${userId}`);
-    await clearCacheData(`docs:${userId}`);
-    await clearCacheData(`mediaInChat:${msg.chat_id}:${userId}`);
-    await clearCacheData(`docsInChat:${msg.chat_id}:${userId}`);
-
     msg.delete_for_all = true;
     await msg.save();
 
-    io.to(msg.sender_id.toString()).emit("msg_delete_for_all", {
-      msgId,
-    });
-
-    io.to(msg.receiver_id.toString()).emit("msg_delete_for_all", {
-      msgId,
-    });
-
-    res
+    return res
       .status(200)
       .json({ message: "Message delete for everyone", success: true });
   } catch (error) {
@@ -529,9 +509,13 @@ const deleteForAll = async (req, res, next) => {
 const searchMessageInChat = async (req, res, next) => {
   try {
     const userId = req.id;
-    const { chatId, text, limit = 10 } = req.query;
+    const { chatId, text, page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     if (!chatId) {
       return res
@@ -562,14 +546,18 @@ const searchMessageInChat = async (req, res, next) => {
 
     const filtered = msg
       .filter((msg) => msg.text)
-      .map((msg) => {
-        const decryptedText = decryptMessage(msg.text);
-        return { ...msg.toJSON(), text: decryptedText };
-      })
-      .filter((msg) => msg.text.toLowerCase().includes(text.toLowerCase()))
-      .slice(0, Number(limit));
+      .map((msg) => ({
+        ...msg.toJSON(),
+        text: decryptMessage(msg.text),
+        // const decryptedText = decryptMessage(msg.text);
+        // return { ...msg.toJSON(), text: decryptedText };
+      }))
+      .filter((msg) => msg.text.toLowerCase().includes(text.toLowerCase()));
 
-    res
+    const start = (pageNumber - 1) * pageSize;
+    filtered.slice(start, start + pageSize);
+
+    return res
       .status(200)
       .json({ message: "search message", success: true, msg: filtered });
   } catch (error) {
@@ -584,21 +572,14 @@ const getAllStarMessages = async (req, res, next) => {
   try {
     const userId = req.id;
 
+    const { page = 1, limit = 10 } = req.query;
+
     logger.info(`${req.method} ${req.url}`);
 
-    const cacheData = await getCacheData(`star:${userId}`);
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
 
-    if (cacheData) {
-      cacheData.forEach((item) => {
-        item.text = decryptMessage(item.text);
-      });
-
-      return res.status(200).json({
-        message: "Started messages fetch successfully",
-        success: true,
-        data: cacheData,
-      });
-    }
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     const starMsg = await findAllMessage({
       where: { delete_for_all: false },
@@ -616,10 +597,10 @@ const getAllStarMessages = async (req, res, next) => {
         },
       ],
       attributes: ["id", "text"],
-      order: [["createdAt", "DESC"]],
+      order: [["id", "DESC"]],
+      limit: Number(pageSize),
+      offset: PageOffset,
     });
-
-    await setCacheData(`star:${userId}`, starMsg);
 
     starMsg.forEach((item) => {
       item.text = decryptMessage(item.text);
@@ -641,13 +622,12 @@ const getAllStarMessages = async (req, res, next) => {
 const getAllStarMessageWithInChat = async (req, res, next) => {
   try {
     const userId = req.id;
-    const { chatId } = req.params;
-    // const { page = 1, limit = 10 } = req.query;
+    const { chatId, page = 1, limit = 10 } = req.params;
 
-    // const pageNumber = parseInt(page);
-    // const pageSize = parseInt(limit);
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
 
-    // const starOffset = (pageNumber - 1) * pageSize;
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     logger.info(`${req.method} ${req.url}`);
 
@@ -663,20 +643,6 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
       return res
         .status(404)
         .json({ message: "chat not found", success: false });
-    }
-
-    const cacheData = await getCacheData(`starInChat:${chatId}:${userId}`);
-
-    if (cacheData) {
-      cacheData.forEach((item) => {
-        cacheData.text = decryptMessage(item.text);
-      });
-
-      return res.status(200).json({
-        message: "Fetch all star message in chat successfully",
-        success: true,
-        data: cacheData,
-      });
     }
 
     const starMsg = await findAllMessage({
@@ -695,12 +661,10 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
         },
       ],
       attributes: ["id", "text"],
-      // limit: pageSize,
-      // offset: starOffset,
+      limit: pageSize,
+      offset: PageOffset,
       order: [["id", "DESC"]],
     });
-
-    await setCacheData(`starInChat:${chatId}:${userId}`, starMsg);
 
     starMsg.forEach((msg) => {
       msg.text = decryptMessage(msg.text);
@@ -712,7 +676,7 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
         .json({ message: "There is not star message for you", success: false });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Fetch all star message in chat successfully",
       success: true,
       data: starMsg,

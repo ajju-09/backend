@@ -3,7 +3,6 @@ const { findAllMessage } = require("../../services/messageService");
 const { decryptMessage } = require("../../helper/cipherMessage");
 const { findChatByKey } = require("../../services/chatServices");
 const { logger } = require("../../helper/logger");
-const { setCacheData, getCacheData } = require("../../redis/redis.client");
 
 // get all media
 // GET /api/v2/user-data/get-media
@@ -11,17 +10,14 @@ const { setCacheData, getCacheData } = require("../../redis/redis.client");
 const getAllMedia = async (req, res, next) => {
   try {
     const userId = req.id;
+    const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
 
-    const cacheData = await getCacheData(`media:${userId}`);
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
 
-    if (cacheData) {
-      console.log("Cached Hits here in get all media");
-      return res
-        .status(200)
-        .json({ message: "get all media", success: true, data: cacheData });
-    }
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     const allMedia = await findAllMessage({
       where: {
@@ -38,6 +34,8 @@ const getAllMedia = async (req, res, next) => {
         ],
       },
       order: [["createdAt", "DESC"]],
+      limit: pageSize,
+      offset: PageOffset,
     });
 
     if (!allMedia) {
@@ -46,9 +44,7 @@ const getAllMedia = async (req, res, next) => {
         .json({ message: "No media found", success: false });
     }
 
-    await setCacheData(`media:${userId}`, allMedia);
-
-    res
+    return res
       .status(200)
       .json({ message: "get all media", success: true, data: allMedia });
   } catch (error) {
@@ -62,17 +58,14 @@ const getAllMedia = async (req, res, next) => {
 const getAllDocs = async (req, res, next) => {
   try {
     const userId = req.id;
+    const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
 
-    const cacheData = await getCacheData(`docs:${userId}`);
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
 
-    if (cacheData) {
-      console.log("Cached Hits here in get all docs");
-      return res
-        .status(200)
-        .json({ message: "get all docs", success: true, data: cacheData });
-    }
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     const allDocs = await findAllMessage({
       where: {
@@ -90,13 +83,13 @@ const getAllDocs = async (req, res, next) => {
         ],
       },
       order: [["createdAt", "DESC"]],
+      limit: pageSize,
+      offset: PageOffset,
     });
 
     if (!allDocs) {
       return res.status(400).json({ message: "No docs found", success: false });
     }
-
-    await setCacheData(`docs:${userId}`, allDocs);
 
     res
       .status(200)
@@ -112,8 +105,14 @@ const getAllDocs = async (req, res, next) => {
 const getAllLinks = async (req, res, next) => {
   try {
     const userId = req.id;
+    const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
+
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     const msg = await findAllMessage({
       where: {
@@ -124,6 +123,8 @@ const getAllLinks = async (req, res, next) => {
         delete_for_all: false,
       },
       order: [["createdAt", "DESC"]],
+      limit: pageSize,
+      offset: PageOffset,
     });
 
     const filtered = msg
@@ -142,7 +143,7 @@ const getAllLinks = async (req, res, next) => {
         .json({ message: "There is not Links for you", success: false });
     }
 
-    res
+    return res
       .status(200)
       .json({ message: "get all links", success: true, data: filtered });
   } catch (error) {
@@ -155,10 +156,15 @@ const getAllLinks = async (req, res, next) => {
 // private access
 const getAllMediaInChat = async (req, res, next) => {
   try {
-    const userId = req.id;
     const { chatId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
+
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     if (!chatId) {
       return res
@@ -172,16 +178,6 @@ const getAllMediaInChat = async (req, res, next) => {
       return res
         .status(404)
         .json({ message: "chat not found", success: false });
-    }
-
-    const cacheData = await getCacheData(`mediaInChat:${chatId}:${userId}`);
-
-    if (cacheData) {
-      return res.status(200).json({
-        message: "fetch all media for chat",
-        success: true,
-        data: cacheData,
-      });
     }
 
     const mediaFiles = await findAllMessage({
@@ -196,6 +192,8 @@ const getAllMediaInChat = async (req, res, next) => {
         ],
       },
       order: [["createdAt", "DESC"]],
+      limit: pageSize,
+      offset: PageOffset,
     });
 
     if (!mediaFiles) {
@@ -204,9 +202,7 @@ const getAllMediaInChat = async (req, res, next) => {
         .json({ message: "There is no media file available", success: false });
     }
 
-    await setCacheData(`mediaInChat:${chatId}:${userId}`, mediaFiles);
-
-    res.status(200).json({
+    return res.status(200).json({
       message: "fetch all media for chat",
       success: true,
       data: mediaFiles,
@@ -221,10 +217,15 @@ const getAllMediaInChat = async (req, res, next) => {
 // private access
 const getAllDocsInChat = async (req, res, next) => {
   try {
-    const userId = req.id;
     const { chatId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
+
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     if (!chatId) {
       return res
@@ -238,16 +239,6 @@ const getAllDocsInChat = async (req, res, next) => {
       return res
         .status(404)
         .json({ message: "chat not found", success: false });
-    }
-
-    const cacheData = await getCacheData(`docsInChat:${chatId}:${userId}`);
-
-    if (cacheData) {
-      return res.status(200).json({
-        message: "Fetch doc files successfully",
-        success: true,
-        data: cacheData,
-      });
     }
 
     const docsFiles = await findAllMessage({
@@ -263,6 +254,8 @@ const getAllDocsInChat = async (req, res, next) => {
         ],
       },
       order: [["createdAt", "DESC"]],
+      limit: pageSize,
+      offset: PageOffset,
     });
 
     if (!docsFiles) {
@@ -271,9 +264,7 @@ const getAllDocsInChat = async (req, res, next) => {
         .json({ message: "There is no doc files available", success: false });
     }
 
-    await setCacheData(`docsInChat:${chatId}:${userId}`, docsFiles);
-
-    res.status(200).json({
+    return res.status(200).json({
       message: "Fetch doc files successfully",
       success: true,
       data: docsFiles,
@@ -289,8 +280,14 @@ const getAllDocsInChat = async (req, res, next) => {
 const getAllLinksInChat = async (req, res, next) => {
   try {
     const { chatId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
+
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+
+    const PageOffset = (pageNumber - 1) * pageSize;
 
     if (!chatId) {
       return res
@@ -316,6 +313,8 @@ const getAllLinksInChat = async (req, res, next) => {
         delete_for_all: false,
       },
       order: [["createdAt", "DESC"]],
+      limit: pageSize,
+      offset: PageOffset,
     });
 
     const filtered = msg
@@ -334,7 +333,7 @@ const getAllLinksInChat = async (req, res, next) => {
         .json({ message: "There is no link for you", success: false });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Fetch links successfully",
       success: true,
       data: filtered,

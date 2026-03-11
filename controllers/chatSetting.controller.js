@@ -75,19 +75,15 @@ const pinChat = async (req, res, next) => {
         .json({ message: "Chat unpin sucessfully", success: true });
     }
 
-    const chatPinLimit = subscription.plan_id === 2 ? 5 : 3;
+    const chatPinLimit = subscription.plan_id === 2 ? 5 : 2;
 
     const chatPinCount = await chatCount({
       where: {
-        chat_id: chatId,
         user_id: userId,
-        is_pin: true,
-        is_delete: false,
+        is_pin: 1,
+        is_delete: 0,
       },
     });
-
-    console.log("Chat pin Limit", chatPinLimit);
-    console.log("Chain pin count", chatPinCount);
 
     if (chatPinCount >= chatPinLimit) {
       return res

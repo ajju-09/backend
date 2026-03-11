@@ -1,5 +1,4 @@
 const { logger } = require("../helper/logger");
-const { clearCacheData } = require("../redis/redis.client");
 const { findMessageByKey } = require("../services/messageService");
 const {
   findOneMessageSetting,
@@ -31,13 +30,6 @@ const starMessage = async (req, res, next) => {
         .status(404)
         .json({ message: "Message setting not found", success: false });
     }
-
-    await clearCacheData(`star:${userId}`);
-    await clearCacheData(`starInChat:${messagesetting.chat_id}:${userId}`);
-    await clearCacheData(`media:${userId}`);
-    await clearCacheData(`docs:${userId}`);
-    await clearCacheData(`mediaInChat:${messagesetting.chat_id}:${userId}`);
-    await clearCacheData(`docsInChat:${messagesetting.chat_id}:${userId}`);
 
     messagesetting.is_star = !messagesetting.is_star;
     await messagesetting.save();
@@ -76,20 +68,16 @@ const deleteMessageForMe = async (req, res, next) => {
         .json({ message: "Message not found", success: false });
     }
 
-    await clearCacheData(`star:${userId}`);
-    await clearCacheData(`starInChat:${msg.chat_id}:${userId}`);
-    await clearCacheData(`media:${userId}`);
-    await clearCacheData(`docs:${userId}`);
-    await clearCacheData(`mediaInChat:${msg.chat_id}:${userId}`);
-    await clearCacheData(`docsInChat:${msg.chat_id}:${userId}`);
-
     await updateMessageSetting(
       { delete_for_me: true },
       {
         where: { msg_id: msgId, user_id: userId },
       },
     );
-    res.status(200).json({ message: "Msg delete for me", success: true });
+
+    return res
+      .status(200)
+      .json({ message: "Msg delete for me", success: true });
   } catch (error) {
     next(error);
   }
