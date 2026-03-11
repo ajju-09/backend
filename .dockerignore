@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+migrations
+seeders
+app.log
+error.log
+ratelimit.log
+.github

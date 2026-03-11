@@ -82,7 +82,7 @@ const initialize = async (server) => {
         if (!lastMsg) return;
 
         await clearCacheData(`unread:${uid}:${cid}`);
-        console.log("Clear Unread Count in socket.js", "cid", cid, "uid", uid);
+
         await updateChatSetting(
           { lastSeenMsgId: lastMsg.id, lastSeen: new Date(), unread_count: 0 },
           {
