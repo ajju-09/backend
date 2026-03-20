@@ -499,13 +499,9 @@ const deleteForAll = async (req, res, next) => {
 const searchMessageInChat = async (req, res, next) => {
   try {
     const userId = req.id;
-    const { chatId, text, page = 1, limit = 10 } = req.query;
+    const { chatId, text, limit = 10 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
-    const pageNumber = parseInt(page);
-    const pageSize = parseInt(limit);
-
-    const PageOffset = (pageNumber - 1) * pageSize;
 
     if (!chatId) {
       return res
@@ -516,6 +512,8 @@ const searchMessageInChat = async (req, res, next) => {
     if (!text) {
       return res.status(400).json({ message: "Text required", success: false });
     }
+
+    const pageSize = parseInt(limit);
 
     const msg = await findAllMessage({
       where: {
@@ -532,24 +530,34 @@ const searchMessageInChat = async (req, res, next) => {
         ],
       },
       order: [["createdAt", "DESC"]],
+      attributes: ["id", "text"],
     });
 
-    const filtered = msg
-      .filter((msg) => msg.text)
-      .map((msg) => ({
-        ...msg.toJSON(),
-        text: decryptMessage(msg.text),
-        // const decryptedText = decryptMessage(msg.text);
-        // return { ...msg.toJSON(), text: decryptedText };
-      }))
-      .filter((msg) => msg.text.toLowerCase().includes(text.toLowerCase()));
+    const results = [];
 
-    const start = (pageNumber - 1) * pageSize;
-    filtered.slice(start, start + pageSize);
+    msg.forEach((msg, idx) => {
+      if (!msg.text) return;
 
-    return res
-      .status(200)
-      .json({ message: "search message", success: true, msg: filtered });
+      const decrypted = decryptMessage(msg.text);
+
+      if (decrypted.toLowerCase().includes(text.toLowerCase())) {
+        const pageNumber = Math.floor(idx / pageSize) + 1;
+
+        results.push({
+          msgId: msg.id,
+          text: decrypted,
+          page: pageNumber,
+        });
+      }
+    });
+
+    return res.status(200).json({
+      message: "search message",
+      success: true,
+      msg: results,
+      totalResults: results.length,
+      totalPages: Math.ceil(results.length / pageSize),
+    });
   } catch (error) {
     next(error);
   }
