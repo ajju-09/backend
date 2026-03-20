@@ -48,8 +48,6 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       timestamp: true,
-      tableName: "messages",
-      freezeTableName: true,
     },
   );
 

@@ -266,14 +266,12 @@ const getMessage = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+    let { page = 1, limit = 10, msgId } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
 
     const pageNumber = parseInt(page);
     const pageSize = parseInt(limit);
-
-    const PageOffset = (pageNumber - 1) * pageSize;
 
     const chat = await findChatByKey(chatId);
 
@@ -290,6 +288,38 @@ const getMessage = async (req, res, next) => {
         .json({ message: "User not Authorized", success: false });
     }
 
+    if (msgId) {
+      const targetMessage = await findOneMessage({
+        where: { id: msgId, chat_id: chatId },
+        attributes: ["id", "createdAt"],
+      });
+
+      if (targetMessage) {
+        const newCount = await countMessages({
+          where: {
+            chat_id: chatId,
+            delete_for_all: false,
+            createdAt: {
+              [Op.gt]: targetMessage.createdAt,
+            },
+            [Op.and]: [
+              db.sequelize.literal(`
+                NOT EXISTS (
+                  SELECT 1 FROM message_settings
+                  WHERE msg_id = Message.id
+                  AND user_id = ${userId}
+                  AND delete_for_me = true
+                )`),
+            ],
+          },
+        });
+
+        pageNumber = Math.floor(newCount / pageSize) + 1;
+      }
+    }
+
+    const PageOffset = (pageNumber - 1) * pageSize;
+
     await updateNotification(
       { seen: true },
       {
@@ -302,7 +332,7 @@ const getMessage = async (req, res, next) => {
       where: {
         chat_id: chatId,
         delete_for_all: false,
-        [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
+        // [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
         [Op.and]: [
           db.sequelize.literal(`
               NOT EXISTS (
@@ -312,14 +342,14 @@ const getMessage = async (req, res, next) => {
                 AND delete_for_me = true
               )
             `),
-          db.sequelize.literal(`
-              NOT EXISTS (
-                SELECT 1 FROM chat_settings
-                WHERE chat_id = ${chatId}
-                AND user_id = ${userId}
-                AND is_block = true
-              )
-            `),
+          // db.sequelize.literal(`
+          //     NOT EXISTS (
+          //       SELECT 1 FROM chat_settings
+          //       WHERE chat_id = ${chatId}
+          //       AND user_id = ${userId}
+          //       AND is_block = true
+          //     )
+          //   `),
         ],
       },
       include: [
@@ -352,6 +382,7 @@ const getMessage = async (req, res, next) => {
       totalMessages: count,
       currentPage: pageNumber,
       totalPages: Math.ceil(count / pageSize),
+      targetMsgId: msgId || null,
     });
   } catch (error) {
     next(error);
@@ -692,7 +723,6 @@ const editMessage = async (req, res, next) => {
     const userId = req.id;
     const { text } = req.body;
     const { chatId, msgId } = req.params;
-    const io = getIo();
 
     logger.info(`${req.method} ${req.url}`);
 
@@ -732,11 +762,6 @@ const editMessage = async (req, res, next) => {
           id: msgId,
           chat_id: chatId,
         },
-      });
-
-      io.to(msg.receiver_id.toString()).emit("edit_msg", {
-        id: msg.id,
-        text: text,
       });
 
       return res.status(200).json({
