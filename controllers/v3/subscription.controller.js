@@ -1,4 +1,5 @@
 const { logger } = require("../../helper/logger");
+require("dotenv").config();
 const sendEmail = require("../../helper/sendMail");
 const { clearCacheData } = require("../../redis/redis.client");
 const { findPlanByKey, Plans } = require("../../services/planServices");
