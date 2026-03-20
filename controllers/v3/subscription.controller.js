@@ -19,7 +19,7 @@ const {
   findSingleUser,
 } = require("../../services/userServices");
 
-const stripe = require("stripe")(process.env.STRIPE_SECERET_KEY);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // checkout session
 // POST /api/v3/subscription/checkout
