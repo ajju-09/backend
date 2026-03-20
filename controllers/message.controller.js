@@ -30,13 +30,7 @@ const {
   incrementChatSetting,
   findOneChatSetting,
 } = require("../services/chatSettingServices");
-const {
-  clearCacheData,
-  setCacheData,
-  getCacheData,
-  increment,
-  expireKey,
-} = require("../redis/redis.client");
+const { getCacheData, increment, expireKey } = require("../redis/redis.client");
 const { findOneSubscription } = require("../services/subscriptionService");
 const { Plans, findOnePlan } = require("../services/planServices");
 const { publisher } = require("../config/redis");
@@ -167,13 +161,6 @@ const sendMessage = async (req, res, next) => {
 
     if (msg) {
       await increment(`unread:${receiverId}:${chatId}`);
-      console.log(
-        "Set cache for unread count",
-        "receiver",
-        receiverId,
-        "chat id",
-        chatId,
-      );
 
       const unreadCount = await getCacheData(`unread:${receiverId}:${chatId}`);
 
@@ -181,6 +168,11 @@ const sendMessage = async (req, res, next) => {
         chatId: chatId,
         unread_count: Number(unreadCount),
       });
+
+      await updateChat(
+        { last_message: encryptedText, last_message_time: new Date() },
+        { where: { id: chatId } },
+      );
 
       const chatData = await findOneChat({
         where: {
@@ -201,9 +193,7 @@ const sendMessage = async (req, res, next) => {
         ],
       });
 
-      const decryptedText = decryptMessage(chatData.last_message);
-
-      chatData.last_message = decryptedText;
+      chatData.last_message = decryptMessage(chatData.last_message);
 
       io.to(receiverId.toString()).emit("chat_update", {
         chat: chatData,

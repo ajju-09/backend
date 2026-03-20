@@ -1,3 +1,4 @@
+const { logger } = require("../../helper/logger");
 const sendEmail = require("../../helper/sendMail");
 const { clearCacheData } = require("../../redis/redis.client");
 const { findPlanByKey, Plans } = require("../../services/planServices");
@@ -26,6 +27,8 @@ const checkoutSession = async (req, res, next) => {
   try {
     const userId = req.id;
     const { planId } = req.body;
+
+    logger.info(`${req.method} ${req.url}`);
 
     if (!planId) {
       return res
@@ -116,6 +119,8 @@ const checkoutSession = async (req, res, next) => {
 // private access
 const stripeWebhook = async (req, res, next) => {
   const signature = req.headers["stripe-signature"];
+
+  logger.info(`${req.method} ${req.url}`);
 
   let event;
 
@@ -371,6 +376,8 @@ const customerBilling = async (req, res, next) => {
         .json({ message: "Customer ID required", success: false });
     }
 
+    logger.info(`${req.method} ${req.url}`);
+
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: req.params.customerId,
       return_url: `${process.env.CLIENT_URL}/`,
@@ -392,6 +399,8 @@ const customerBilling = async (req, res, next) => {
 const getUserSubscription = async (req, res, next) => {
   try {
     const userId = req.id;
+
+    logger.info(`${req.method} ${req.url}`);
 
     const subscription = await findOneSubscription({
       where: { user_id: userId },

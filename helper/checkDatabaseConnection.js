@@ -1,6 +1,6 @@
 const db = require("../models/index");
 
-const checkDBConnection = async () => {
+const checkDBConnection = async (next) => {
   try {
     await db.sequelize.authenticate();
     console.log("Database connection established successfully");
