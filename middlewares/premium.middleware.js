@@ -30,7 +30,7 @@ const premiumFeature = async (req, res, next) => {
     !subscription.Plan.file_sharing_enable ||
     subscription === null
   ) {
-    return res.status(403).json({
+    return res.status(401).json({
       message: "File sharing is available only for premium user only.",
     });
   }

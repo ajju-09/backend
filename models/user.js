@@ -1,87 +1,94 @@
 "use strict";
 
 module.exports = (sequelize, DataTypes) => {
-  const User = sequelize.define("User", {
-    id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      autoIncrement: true,
-      primaryKey: true,
+  const User = sequelize.define(
+    "User",
+    {
+      id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+      },
+      stripe_customer_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      name: {
+        type: DataTypes.STRING(100),
+        allowNull: false,
+      },
+      email: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+        unique: true,
+      },
+      phone: {
+        type: DataTypes.STRING(100),
+        allowNull: false,
+        unique: true,
+      },
+      password: {
+        type: DataTypes.STRING(100),
+        allowNull: false,
+      },
+      photo: {
+        type: DataTypes.TEXT,
+        defaultValue: null,
+      },
+      otp_purpose: {
+        type: DataTypes.ENUM("signup", "forgot_password"),
+        allowNull: true,
+        defaultValue: null,
+      },
+      otp: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        defaultValue: null,
+      },
+      expiresAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null,
+      },
+      isVerified: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      is_online: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
+      last_seen: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      isDeleted: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false,
+      },
+      isLogin: {
+        type: DataTypes.BOOLEAN,
+        default: false,
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+        allowNull: true,
+      },
     },
-    stripe_customer_id: {
-      type: DataTypes.STRING,
-      allowNull: true,
+    {
+      tableName: "users",
+      freezeTableName: true,
     },
-    name: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-    },
-    email: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-      unique: true,
-    },
-    phone: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      unique: true,
-    },
-    password: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-    },
-    photo: {
-      type: DataTypes.TEXT,
-      defaultValue: null,
-    },
-    otp_purpose: {
-      type: DataTypes.ENUM("signup", "forgot_password"),
-      allowNull: true,
-      defaultValue: null,
-    },
-    otp: {
-      type: DataTypes.STRING(100),
-      allowNull: true,
-      defaultValue: null,
-    },
-    expiresAt: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      defaultValue: null,
-    },
-    isVerified: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: false,
-    },
-    is_online: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    last_seen: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
-    isDeleted: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      allowNull: false,
-    },
-    isLogin: {
-      type: DataTypes.BOOLEAN,
-      default: false,
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
-      allowNull: false,
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
-      allowNull: true,
-    },
-  });
+  );
 
   User.associate = (models) => {
     User.hasMany(models.Chat, {
