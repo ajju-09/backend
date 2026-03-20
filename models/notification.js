@@ -31,6 +31,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       tableName: "notifications",
+      freezeTableName: true,
     },
   );
 
