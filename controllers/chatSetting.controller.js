@@ -265,11 +265,11 @@ const deleteChat = async (req, res, next) => {
       { where: { id: chatId } },
     );
 
-    await updateMessage(
-      { delete_for_all: true },
-      { where: { chat_id: chatId } },
+    await updateMessageSetting(
+      { delete_for_me: true },
+      { where: { user_id: userId, chat_id: chatId } },
     );
-
+    
     res.status(200).json({
       message: chatsetting.is_delete ? "chat delete" : "welcome",
       success: true,
