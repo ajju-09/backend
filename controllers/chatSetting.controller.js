@@ -5,7 +5,7 @@ const {
   chatCount,
   updateChatSetting,
 } = require("../services/chatSettingServices");
-const { updateMessage } = require("../services/messageService");
+const { updateMessageSetting } = require("../services/messageSettingServices");
 const { findOneSubscription } = require("../services/subscriptionService");
 
 // pin chat
@@ -269,7 +269,7 @@ const deleteChat = async (req, res, next) => {
       { delete_for_me: true },
       { where: { user_id: userId, chat_id: chatId } },
     );
-    
+
     res.status(200).json({
       message: chatsetting.is_delete ? "chat delete" : "welcome",
       success: true,
