@@ -27,6 +27,7 @@
     "sequelize": "^6.37.7",
     "socket.io": "^4.8.3",
     "stripe": "^20.4.0",
+    "twilio": "^5.13.0",
     "winston": "^3.19.0"
   },
   "devDependencies": {
