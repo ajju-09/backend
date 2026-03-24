@@ -30,8 +30,9 @@ const signUpSchema = Joi.object({
 });
 
 const loginSchema = Joi.object({
-  phone: Joi.number().integer().required().messages({
-    "string.pattern.base": "Invalid phone number",
+  email: Joi.string().email().required().lowercase().messages({
+    "string.email": "Enter valid email",
+    "any.required": "Email is required",
   }),
 
   password: Joi.string()
@@ -116,17 +117,19 @@ const updateSchema = Joi.object({
 });
 
 const sendOtpSchema = Joi.object({
-  phone: Joi.number().integer().required().messages({
-    "string.pattern.base": "Invalid phone number",
+  email: Joi.string().email().lowercase().required().messages({
+    "string.email": "Enter valid email",
+    "any.required": "Email is required",
   }),
-  // action: Joi.string().required().messages({
-  //   "string.required": "action required",
-  // }),
+  action: Joi.string().required().messages({
+    "string.required": "action required",
+  }),
 });
 
 const verifyOtpSchema = Joi.object({
-  phone: Joi.number().integer().required().messages({
-    "string.pattern.base": "Invalid phone number",
+  email: Joi.string().email().lowercase().required().messages({
+    "string.email": "Enter valid email",
+    "any.required": "Email is required",
   }),
   otp: Joi.string().length(6).required().trim().messages({
     "otp.empty": "otp required",
@@ -135,8 +138,9 @@ const verifyOtpSchema = Joi.object({
 });
 
 const forgotPasswordSchema = Joi.object({
-  phone: Joi.number().integer().required().messages({
-    "string.pattern.base": "Invalid phone number",
+  email: Joi.string().email().required().lowercase().messages({
+    "string.email": "Enter valid email",
+    "any.required": "Email is required",
   }),
   newPass: Joi.string()
     .min(6)

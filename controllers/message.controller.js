@@ -312,14 +312,14 @@ const getMessage = async (req, res, next) => {
                 AND delete_for_me = true
               )
             `),
-          // db.sequelize.literal(`
-          //     NOT EXISTS (
-          //       SELECT 1 FROM chat_settings
-          //       WHERE chat_id = ${chatId}
-          //       AND user_id = ${userId}
-          //       AND is_block = true
-          //     )
-          //   `),
+          db.sequelize.literal(`
+              NOT EXISTS (
+                SELECT 1 FROM chat_settings
+                WHERE chat_id = ${chatId}
+                AND user_id = ${userId}
+                AND is_block = true
+              )
+            `),
         ],
       },
       include: [
