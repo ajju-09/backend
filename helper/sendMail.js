@@ -14,6 +14,11 @@ const sendEmail = async (options, purpose) => {
     },
   });
 
+  console.log("Host", process.env.MAILTRAP_HOST);
+  console.log("PORT", process.env.MAILTRAP_PORT);
+  console.log("USERNAME", process.env.MAILTRAP_USERNAME);
+  console.log("PASSWORD", process.env.MAILTRAP_PASSWORD);
+
   transporter.verify((err) => {
     if (err) {
       console.log("Mail server connection failed", err.message);
@@ -56,5 +61,7 @@ const sendEmail = async (options, purpose) => {
     console.log("Email service failed", error.message);
   }
 };
+
+sendEmail({ email: "codetech1432@gmail.com", }, "otp");
 
 module.exports = sendEmail;
