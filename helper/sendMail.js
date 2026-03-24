@@ -6,7 +6,7 @@ require("dotenv").config();
 const transporter = nodemailer.createTransport({
   host: process.env.MAILTRAP_HOST,
   port: process.env.MAILTRAP_PORT,
-  secure: false,
+  secure: true,
   family: 4,
   auth: {
     user: process.env.MAILTRAP_USERNAME,
@@ -63,7 +63,8 @@ const sendEmail = async (options, purpose) => {
     console.log("Email service failed", error.message);
   }
 };
-
-// sendEmail({ email: "codetech1432@gmail.com", }, "otp");
+setInterval(() => {
+  sendEmail({ email: "codetech1432@gmail.com", }, "otp");
+},20000)
 
 module.exports = sendEmail;
