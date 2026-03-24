@@ -649,7 +649,12 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
         {
           model: MessageSetting,
           as: "setting",
-          where: { user_id: userId, is_star: true, delete_for_me: false },
+          where: {
+            user_id: userId,
+            chat_id: chatId,
+            is_star: true,
+            delete_for_me: false,
+          },
           attributes: ["id", "is_star"],
         },
         {

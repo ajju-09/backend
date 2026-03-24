@@ -16,6 +16,7 @@ const {
   findAllUser,
   findUserByKey,
   updateUser,
+  findOneUser,
 } = require("../services/userServices");
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
 const { getIo } = require("../socket");
@@ -194,7 +195,10 @@ const login = async (req, res, next) => {
 
     const token = generateToken(data);
 
-    await updateUser({ isLogin: true }, { where: { id: user.id } });
+    await updateUser(
+      { isLogin: true, otp: null, otp_purpose: null, expiresAt: null },
+      { where: { id: user.id } },
+    );
 
     const userDetail = {
       id: user.id,
@@ -209,7 +213,7 @@ const login = async (req, res, next) => {
       updatedAt: user.updatedAt,
     };
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "User Login successfully",
       success: true,
       token: token,
@@ -221,15 +225,21 @@ const login = async (req, res, next) => {
 };
 
 // profile
-// GET /api/v1/users/profile/:id
+// GET /api/v1/users/profile
 // private access
 const profile = async (req, res, next) => {
   try {
-    // take use id from token
-    // const userid = req.id;
-    const { id } = req.params;
+    const userId = req.id;
 
-    const user = await findUserByKey(id);
+    console.log("User id in profile", userId);
+    logger.info(`${req.method} ${req.url}`);
+
+    const user = await findOneUser({
+      where: { id: userId },
+      attributes: {
+        exclude: ["password", "otp", "otp_purpose", "expiresAt"],
+      },
+    });
 
     if (!user) {
       return res
@@ -237,29 +247,47 @@ const profile = async (req, res, next) => {
         .json({ message: "User not found", success: false });
     }
 
+    return res
+      .status(200)
+      .json({ message: "User profile", success: true, data: user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Other users profile
+// POST /api/v1/users/other-user-profile
+// private access
+const otherUserProfile = async (req, res, next) => {
+  try {
+    const { id } = req.body;
+
     logger.info(`${req.method} ${req.url}`);
 
-    // grab data from database exclude password
-    const data = await findAllUser({
-      where: {
-        id: user.id,
-      },
+    if (!id) {
+      return res
+        .status(400)
+        .json({ message: "Other user id required", success: false });
+    }
+
+    const user = await findOneUser({
+      where: { id: id },
       attributes: {
-        exclude: ["password"],
+        exclude: ["password", "otp", "otp_purpose", "expiresAt"],
       },
     });
 
-    if (!data) {
+    if (!user) {
       return res
-        .status(401)
-        .message({ message: "user data not found", success: false });
+        .status(404)
+        .json({ message: "User not found", success: false });
     }
 
-    res
+    return res
       .status(200)
-      .json({ message: "User profile", success: true, data: data });
+      .json({ message: "User profile", success: true, data: user });
   } catch (error) {
-    next(error);
+    next();
   }
 };
 
@@ -766,4 +794,5 @@ module.exports = {
   sendOtp,
   forgotPassword,
   getStripeId,
+  otherUserProfile,
 };

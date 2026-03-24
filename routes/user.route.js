@@ -13,6 +13,7 @@ const {
   sendOtp,
   forgotPassword,
   getStripeId,
+  otherUserProfile,
 } = require("../controllers/user.controller");
 const auth = require("../middlewares/auth.middleware");
 const imageAuth = require("../middlewares/singleUpload.middleware");
@@ -24,8 +25,9 @@ router.post("/login", login);
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.post("/forgot-password", forgotPassword);
+router.post("/other-user-profile", auth, otherUserProfile);
 
-router.get("/profile/:id", auth, profile);
+router.get("/profile", auth, profile);
 router.get("/getall", auth, getAllUser);
 router.get("/search", auth, searchUsers);
 router.get("/get-stripe-id", auth, getStripeId);

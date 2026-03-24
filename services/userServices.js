@@ -32,6 +32,11 @@ const updateUser = async (data, query) => {
   return updateuser;
 };
 
+const findOneUser = async (query) => {
+  const data = await Users.findOne(query);
+  return data;
+};
+
 module.exports = {
   findSingleUser,
   createUser,
@@ -39,4 +44,5 @@ module.exports = {
   findUserByKey,
   updateUser,
   Users,
+  findOneUser,
 };

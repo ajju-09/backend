@@ -46,9 +46,6 @@ const initialize = async (server) => {
 
       if (userInfo?.id) {
         socket.join(userId.toString());
-        console.log("==============================");
-        console.log("userId", userId);
-        console.log("==============================");
 
         const socketCount = await addUserSocket(userId, socket.id);
 
@@ -102,7 +99,7 @@ const initialize = async (server) => {
             },
           );
 
-          io.to(lastMsg.receiver_id).emit("seen", {
+          io.to(lastMsg.receiver_id.toString()).emit("seen", {
             cid: lastMsg.chat_id,
             seenBy: uid,
           });
@@ -167,9 +164,6 @@ const initialize = async (server) => {
 
 const connect = async (userInfo) => {
   io.emit("online_status", JSON.stringify({ uid: userInfo.id, on: 1 }));
-  console.log("=============================");
-  console.log("online_status", userInfo.id);
-  console.log("=============================");
 };
 
 const disconnect = async (userId) => {
