@@ -23,6 +23,7 @@ const { getIo } = require("../socket");
 const { createSubscription } = require("../services/subscriptionService");
 const { sendMessage, sendOtpMessage } = require("../helper/sendSms");
 const { generateOtp, expiresIn } = require("../helper/generateOtp");
+const sendEmail = require("../helper/sendMail");
 
 // register
 // POST /api/v1/users/register
@@ -586,9 +587,9 @@ const sendOtp = async (req, res, next) => {
     }
 
     logger.info(`${req.method} ${req.url}`);
-    const { phone, action } = value;
+    const { email, action } = value;
 
-    const user = await findSingleUser({ where: { phone: phone } });
+    const user = await findSingleUser({ where: { email: email } });
 
     if (!user) {
       return res
@@ -611,7 +612,7 @@ const sendOtp = async (req, res, next) => {
             expiresAt: expireTime,
             otp_purpose: "signup",
           },
-          { where: { phone: phone } },
+          { where: { email: email } },
         );
         break;
       case "forgot_password":
@@ -621,22 +622,22 @@ const sendOtp = async (req, res, next) => {
             expiresAt: expireTime,
             otp_purpose: "forgot_password",
           },
-          { where: { phone: phone } },
+          { where: { email: email } },
         );
         break;
     }
 
     // send otp message
-    const result = await sendOtpMessage(`+91${phone}`, otp);
+    // const result = await sendOtpMessage(`+91${phone}`, otp);
 
-    if (!result.success) {
-      return res
-        .status(400)
-        .json({ message: "Failed to send otp", success: false });
-    }
+    // if (!result.success) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Failed to send otp", success: false });
+    // }
 
     // send email
-    // await sendEmail({ email: email, otp: Otp }, "otp");
+    await sendEmail({ email: email, otp: otp }, "otp");
 
     return res
       .status(200)
@@ -660,10 +661,10 @@ const verifyOtp = async (req, res, next) => {
     }
 
     logger.info(`${req.method} ${req.url}`);
-    const { phone, otp } = value;
+    const { email, otp } = value;
 
     // find for user in database
-    const user = await findSingleUser({ where: { phone: phone } });
+    const user = await findSingleUser({ where: { email: email } });
 
     if (!user) {
       return res
@@ -710,7 +711,7 @@ const verifyOtp = async (req, res, next) => {
     user.otp_purpose = null;
     await user.save();
 
-    await sendMessage(`+91${phone}`);
+    // await sendMessage(`+91${phone}`);
 
     // generate token
     const token = generateToken({
@@ -742,9 +743,9 @@ const forgotPassword = async (req, res, next) => {
     }
 
     logger.info(`${req.method} ${req.url}`);
-    const { phone, newPass } = value;
+    const { email, newPass } = value;
 
-    const user = await findSingleUser({ where: { phone: phone } });
+    const user = await findSingleUser({ where: { email: email } });
 
     if (!user) {
       return res
@@ -765,7 +766,7 @@ const forgotPassword = async (req, res, next) => {
     const hashedNewpass = await bcrypt.hash(newPass, 10);
 
     // update it in database
-    await updateUser({ password: hashedNewpass }, { where: { phone: phone } });
+    await updateUser({ password: hashedNewpass }, { where: { email: email } });
 
     return res
       .status(200)

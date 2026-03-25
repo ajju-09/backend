@@ -224,10 +224,6 @@ const sendMessage = async (req, res, next) => {
       image_url: msg.image_url ? JSON.parse(msg.image_url) : [],
     };
 
-    console.log("==============================");
-    console.log("receiver id", receiverId);
-    console.log("==============================");
-
     await publisher.publish("MESSAGES", JSON.stringify(responseMsg));
     console.log("Message publish on redis");
 
