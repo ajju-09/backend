@@ -18,16 +18,19 @@ const initialize = async (server) => {
   });
 
   io.on("connection", async (socket) => {
-    console.log("==============================");
-    console.log("User connected successfully", socket.id);
-    console.log("==============================");
+    console.log(
+      "<============== User connected successfully",
+      socket.id,
+      "==============>",
+    );
+
     try {
       const token = socket.handshake.auth?.token;
 
       if (!token) {
-        console.log("==============================");
-        console.log("No token, disconnecting...");
-        console.log("==============================");
+        console.log(
+          "<============== No token, disconnecting... ==============>",
+        );
         return socket.disconnect();
       }
 
@@ -36,9 +39,9 @@ const initialize = async (server) => {
       const userId = decodedToken.id;
 
       if (!userId) {
-        console.log("==============================");
-        console.log("No userId found disconnecting.....");
-        console.log("==============================");
+        console.log(
+          "<============== No userId found disconnecting..... ==============>",
+        );
         return socket.disconnect();
       }
 
@@ -75,7 +78,9 @@ const initialize = async (server) => {
 
         try {
           if (!cid || !uid) {
-            console.log("Chat or User Id required");
+            console.log(
+              "<============== Chat or User Id required ==============>",
+            );
           }
 
           const lastMsg = await findOneMessage({
@@ -132,9 +137,7 @@ const initialize = async (server) => {
               await disconnect(userInfo.id);
             }
 
-            console.log("=============================");
-            console.log("User disconnnected");
-            console.log("=============================");
+            console.log("<============== User disconnnected ==============>");
           }
         }
       });
@@ -155,7 +158,9 @@ const initialize = async (server) => {
         reply_to: parsedMessage.reply_to,
       });
 
-      console.log("Message received from Redis");
+      console.log(
+        "<============== Message received from Redis ==============>",
+      );
     } catch (error) {
       console.log("Redis subscriber error", error.message);
     }

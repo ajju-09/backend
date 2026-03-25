@@ -13,7 +13,6 @@ const uploadToCloudinary = async (file) => {
     return result;
   } catch (error) {
     console.log("Error in uploading image to cloudinary", error.message);
-    next(error);
   }
 };
 

@@ -1,6 +1,6 @@
 const { logger } = require("../../helper/logger");
+const { sentMessageOnSub } = require("../../helper/sendSms");
 require("dotenv").config();
-const sendEmail = require("../../helper/sendMail");
 const { clearCacheData } = require("../../redis/redis.client");
 const { findPlanByKey, Plans } = require("../../services/planServices");
 const {
@@ -281,15 +281,23 @@ const stripeWebhook = async (req, res, next) => {
           },
         );
 
-        await sendEmail(
-          {
-            name: user.name,
-            email: user.email,
-            url: invoice.hosted_invoice_url,
-            number: invoice.number,
-          },
-          "invoice",
-        );
+        const result = await sentMessageOnSub(`+91${user.phone}`);
+
+        if (!result.success) {
+          return res
+            .status(400)
+            .json({ message: "Failed to send otp", success: false });
+        }
+
+        // await sendEmail(
+        //   {
+        //     name: user.name,
+        //     email: user.email,
+        //     url: invoice.hosted_invoice_url,
+        //     number: invoice.number,
+        //   },
+        //   "invoice",
+        // );
 
         break;
       }

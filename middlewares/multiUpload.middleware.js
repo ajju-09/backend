@@ -24,7 +24,7 @@ const fileFilter = (req, file, cb) => {
     "application/msword",
     "application/vnd.ms-powerpoint",
     "video/mp4",
-    "audio/mpeg"
+    "audio/mpeg",
   ];
 
   if (allowTypes.includes(file.mimetype)) {
@@ -37,7 +37,9 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: 5 * 1024 * 1024, // 5 MB
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  }, // 5 MB
 });
 
 const multiUpload = upload.array("images", 2);

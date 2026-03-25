@@ -21,11 +21,8 @@ const {
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
 const { getIo } = require("../socket");
 const { createSubscription } = require("../services/subscriptionService");
-const {
-  sendOtpViaSms,
-  verifyOtpviaSms,
-  sendMessage,
-} = require("../helper/sendSms");
+const { sendMessage, sendOtpMessage } = require("../helper/sendSms");
+const { generateOtp, expiresIn } = require("../helper/generateOtp");
 
 // register
 // POST /api/v1/users/register
@@ -80,8 +77,6 @@ const register = async (req, res, next) => {
         updatedAt: existedEmail.updatedAt,
       };
 
-      await sendMessage(`+91${phone}`);
-
       return res.status(200).json({
         message: "Welcome back",
         success: true,
@@ -116,8 +111,6 @@ const register = async (req, res, next) => {
     };
 
     if (newUser) {
-      await sendMessage(`+91${phone}`);
-
       await createSubscription({
         user_id: userDetail.id,
         plan_id: 1,
@@ -132,7 +125,9 @@ const register = async (req, res, next) => {
       });
     }
 
-    res.status(400).json({ message: "Something went wrong", success: false });
+    return res
+      .status(400)
+      .json({ message: "Something went wrong", success: false });
   } catch (error) {
     next(error);
   }
@@ -199,7 +194,9 @@ const login = async (req, res, next) => {
 
     const token = generateToken(data);
 
-    await sendMessage(`+91${phone}`);
+    if (user) {
+      await sendMessage(`+91${phone}`);
+    }
 
     await updateUser(
       { isLogin: true, otp: null, otp_purpose: null, expiresAt: null },
@@ -530,6 +527,8 @@ const logout = async (req, res, next) => {
 // GET /api/v1/users/search
 const searchUsers = async (req, res, next) => {
   try {
+    const userId = req.id;
+
     const { name, limit = "4" } = req.query;
 
     if (!name) {
@@ -550,7 +549,7 @@ const searchUsers = async (req, res, next) => {
             },
           },
         ],
-
+        id: { [Op.ne]: userId },
         isDeleted: false,
         isVerified: true,
       },
@@ -587,7 +586,7 @@ const sendOtp = async (req, res, next) => {
     }
 
     logger.info(`${req.method} ${req.url}`);
-    const { phone /** action */ } = value;
+    const { phone, action } = value;
 
     const user = await findSingleUser({ where: { phone: phone } });
 
@@ -597,41 +596,44 @@ const sendOtp = async (req, res, next) => {
         .json({ message: "user not found", success: false });
     }
 
-    const result = await sendOtpViaSms(`+91${phone}`);
+    // generate otp
+    const otp = generateOtp();
+
+    const hasedOtp = await bcrypt.hash(otp.toString(), 10);
+
+    const expireTime = expiresIn();
+
+    switch (action) {
+      case "signup":
+        await updateUser(
+          {
+            otp: hasedOtp,
+            expiresAt: expireTime,
+            otp_purpose: "signup",
+          },
+          { where: { phone: phone } },
+        );
+        break;
+      case "forgot_password":
+        await updateUser(
+          {
+            otp: hasedOtp,
+            expiresAt: expireTime,
+            otp_purpose: "forgot_password",
+          },
+          { where: { phone: phone } },
+        );
+        break;
+    }
+
+    // send otp message
+    const result = await sendOtpMessage(`+91${phone}`, otp);
 
     if (!result.success) {
       return res
         .status(400)
         .json({ message: "Failed to send otp", success: false });
     }
-
-    // generate otp
-    // const Otp = generateOtp();
-
-    // // hashed otp
-    // const hashedOtp = await bcrypt.hash(Otp.toString(), 10);
-
-    // // generate expire time
-    // const expiresTime = expiresIn();
-
-    // switch (action) {
-    //   case "signup":
-    //     await updateUser(
-    //       { otp: hashedOtp, expiresAt: expiresTime, otp_purpose: "signup" },
-    //       { where: { email: email } },
-    //     );
-    //     break;
-    //   case "forgot_password":
-    //     await updateUser(
-    //       {
-    //         otp: hashedOtp,
-    //         expiresAt: expiresTime,
-    //         otp_purpose: "forgot_password",
-    //       },
-    //       { where: { email: email } },
-    //     );
-    //     break;
-    // }
 
     // send email
     // await sendEmail({ email: email, otp: Otp }, "otp");
@@ -669,42 +671,36 @@ const verifyOtp = async (req, res, next) => {
         .json({ message: "Email not found", success: false });
     }
 
-    const result = await verifyOtpviaSms(`+91${phone}`, otp);
-
-    if (!result.success) {
-      return res.status(400).json({ message: "Invalid otp", success: false });
+    // check otp feilds
+    if (user.otp === null) {
+      return res
+        .status(401)
+        .json({ message: "Otp is not present", success: false });
     }
 
-    // check otp feilds
-    // if (user.otp === null) {
-    //   return res
-    //     .status(401)
-    //     .json({ message: "Otp is not present", success: false });
-    // }
+    if (user.otp_purpose === "forgot_password" && user.isVerified === false) {
+      user.otp = null;
+      user.expiresAt = null;
+      user.otp_purpose = null;
+      await user.save();
+      return res.status(400).json({ message: "Your are not verified" });
+    }
 
-    // if (user.otp_purpose === "forgot_password" && user.isVerified === false) {
-    //   user.otp = null;
-    //   user.expiresAt = null;
-    //   user.otp_purpose = null;
-    //   await user.save();
-    //   return res.status(400).json({ message: "Your are not verified" });
-    // }
+    // comapre otp
+    const isMatch = await bcrypt.compare(otp, user.otp);
 
-    // // comapre otp
-    // const isMatch = await bcrypt.compare(otp, user.otp);
+    if (!isMatch) {
+      return res
+        .status(400)
+        .json({ message: "Otp does not match", success: false });
+    }
 
-    // if (!isMatch) {
-    //   return res
-    //     .status(400)
-    //     .json({ message: "Otp does not match", success: false });
-    // }
-
-    // if (new Date() > user.expiresAt) {
-    //   user.otp = null;
-    //   user.expiresAt = null;
-    //   await user.save();
-    //   return res.status(400).json({ message: "Otp expired", success: false });
-    // }
+    if (new Date() > user.expiresAt) {
+      user.otp = null;
+      user.expiresAt = null;
+      await user.save();
+      return res.status(400).json({ message: "Otp expired", success: false });
+    }
 
     // // update isVerified
     user.isVerified = true;
@@ -713,6 +709,8 @@ const verifyOtp = async (req, res, next) => {
     user.isLogin = true;
     user.otp_purpose = null;
     await user.save();
+
+    await sendMessage(`+91${phone}`);
 
     // generate token
     const token = generateToken({

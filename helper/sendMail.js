@@ -1,32 +1,25 @@
-const dns = require("dns");
-dns.setDefaultResultOrder("ipv4first");
 const nodemailer = require("nodemailer");
 const { otpTemplate, invoiceTemplate } = require("./otpTemplet");
 require("dotenv").config();
-const transporter = nodemailer.createTransport({
-  host: process.env.MAILTRAP_HOST,
-  port: process.env.MAILTRAP_PORT,
-  secure: true,
-  family: 4,
-  auth: {
-    user: process.env.MAILTRAP_USERNAME,
-    pass: process.env.MAILTRAP_PASSWORD,
-  },
-});
 
 const sendEmail = async (options, purpose) => {
-
-  console.log("Host", process.env.MAILTRAP_HOST);
-  console.log("PORT", process.env.MAILTRAP_PORT);
-  console.log("USERNAME", process.env.MAILTRAP_USERNAME);
-  console.log("PASSWORD", process.env.MAILTRAP_PASSWORD);
+  const transporter = nodemailer.createTransport({
+    host: process.env.MAILTRAP_HOST,
+    port: process.env.MAILTRAP_PORT,
+    secure: true,
+    family: 4,
+    auth: {
+      user: process.env.MAILTRAP_USERNAME,
+      pass: process.env.MAILTRAP_PASSWORD,
+    },
+  });
 
   transporter.verify((err) => {
     if (err) {
       console.log("Mail server connection failed", err.message);
+    } else {
+      console.log("Mail server is Up & Running....");
     }
-
-    console.log("Mail server is Up & Running....");
   });
 
   let mail;
@@ -56,15 +49,10 @@ const sendEmail = async (options, purpose) => {
 
   try {
     await transporter.sendMail(mail);
-    console.log("============================");
-    console.log("Email sent....");
-    console.log("============================");
+    console.log("<============= Email sent.... =============>");
   } catch (error) {
     console.log("Email service failed", error.message);
   }
 };
-setInterval(() => {
-  sendEmail({ email: "codetech1432@gmail.com", }, "otp");
-},20000)
 
 module.exports = sendEmail;

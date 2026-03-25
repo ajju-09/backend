@@ -119,15 +119,17 @@ const sendOtpSchema = Joi.object({
   phone: Joi.number().integer().required().messages({
     "string.pattern.base": "Invalid phone number",
   }),
-  // action: Joi.string().required().messages({
-  //   "string.required": "action required",
-  // }),
+
+  action: Joi.string().required().messages({
+    "string.required": "action required",
+  }),
 });
 
 const verifyOtpSchema = Joi.object({
   phone: Joi.number().integer().required().messages({
     "string.pattern.base": "Invalid phone number",
   }),
+
   otp: Joi.string().length(6).required().trim().messages({
     "otp.empty": "otp required",
     "otp.length": "6 digit required",
