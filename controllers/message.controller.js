@@ -30,7 +30,12 @@ const {
   incrementChatSetting,
   findOneChatSetting,
 } = require("../services/chatSettingServices");
-const { getCacheData, increment, expireKey } = require("../redis/redis.client");
+const {
+  getCacheData,
+  increment,
+  expireKey,
+  clearCacheData,
+} = require("../redis/redis.client");
 const { findOneSubscription } = require("../services/subscriptionService");
 const { Plans, findOnePlan } = require("../services/planServices");
 const { publisher } = require("../config/redis");
@@ -361,6 +366,13 @@ const getMessage = async (req, res, next) => {
         item.text = "This message was deleted";
       }
     });
+
+    await updateMessage(
+      { status: "seen" },
+      { where: { chat_id: chatId, receiver_id: userId } },
+    );
+
+    await clearCacheData(`unread:${userId}:${chatId}`);
 
     return res.status(200).json({
       message: MESSAGES.MESSAGE.GET_ALL_MESSAGES_SUCCESS,

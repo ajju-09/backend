@@ -33,6 +33,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
       },
+      status: {
+        type: DataTypes.ENUM("sent", "delivered", "seen"),
+        defaultValue: "sent",
+      },
       delete_for_all: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,

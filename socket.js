@@ -1,11 +1,12 @@
 const { Server } = require("socket.io");
 const { updateUser, findUserByKey } = require("./services/userServices");
 const jwt = require("jsonwebtoken");
-const { findOneMessage } = require("./services/messageService");
+const { findOneMessage, updateMessage } = require("./services/messageService");
 const { updateChatSetting } = require("./services/chatSettingServices");
 const { subscriber } = require("./config/redis");
 const { addUserSocket, removeUserSocket } = require("./helper/socketUsers");
 const { clearCacheData } = require("./redis/redis.client");
+const { Op } = require("sequelize");
 
 let io;
 // const userSocketMap = new Map();
@@ -90,6 +91,17 @@ const initialize = async (server) => {
 
           if (!lastMsg) return;
 
+          await updateMessage(
+            { status: "seen" },
+            {
+              where: {
+                chat_id: cid,
+                receiver_id: uid,
+                status: { [Op.ne]: "seen" },
+              },
+            },
+          );
+
           await updateChatSetting(
             {
               lastSeenMsgId: lastMsg.id,
@@ -104,9 +116,10 @@ const initialize = async (server) => {
             },
           );
 
-          io.to(lastMsg.receiver_id.toString()).emit("seen", {
+          io.to(lastMsg.sender_id.toString()).emit("seen", {
             cid: lastMsg.chat_id,
             seenBy: uid,
+            lastSeenMsgId: lastMsg.id,
           });
         } catch (error) {
           console.log("Error in fe_seen socket", error.message);
