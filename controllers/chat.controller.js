@@ -14,6 +14,7 @@ const {
 } = require("../services/chatSettingServices");
 const { decryptMessage } = require("../helper/cipherMessage");
 const { getCacheData } = require("../redis/redis.client");
+const MESSAGES = require("../helper/messages");
 
 // create chat
 // POST /api/v1/chat/create
@@ -28,14 +29,15 @@ const createChat = async (req, res, next) => {
     if (!receiverId) {
       return res
         .status(404)
-        .json({ message: "Receiver id is not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_FOUND, success: false });
     }
 
     // prevent self chat
     if (senderId === receiverId) {
-      return res
-        .status(400)
-        .json({ message: "Cannot chat with yourself", success: false });
+      return res.status(400).json({
+        message: MESSAGES.ERROR.CANNOT_CHAT_WITH_YOURSELF,
+        success: false,
+      });
     }
 
     // check for receiver
@@ -44,7 +46,7 @@ const createChat = async (req, res, next) => {
     if (!recevier) {
       return res
         .status(404)
-        .json({ message: "recevier not found ", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_FOUND, success: false });
     }
 
     // check if chat already existed
@@ -77,7 +79,7 @@ const createChat = async (req, res, next) => {
       });
 
       return res.status(200).json({
-        message: "Chat already exist",
+        message: MESSAGES.CHAT.CHAT_ALREADY_EXIST,
         data: updatedChat,
         receiver: {
           id: recevier.id,
@@ -104,8 +106,8 @@ const createChat = async (req, res, next) => {
       },
     ]);
 
-    res.status(200).json({
-      message: "Chat created successfully ",
+    return res.status(200).json({
+      message: MESSAGES.CHAT.CREATE_CHAT_SUCCESS,
       success: true,
       data: chat,
       receiver: {
@@ -195,9 +197,11 @@ const getMyChats = async (req, res, next) => {
     // const count = await getCacheData(`unread:${userId}:${decryptedChat.id}`);
     // console.log("get unread count from chat controller", count);
 
-    res
-      .status(200)
-      .json({ message: "My chats", success: true, data: decryptedChat });
+    return res.status(200).json({
+      message: MESSAGES.CHAT.GET_CHATS_SUCCESS,
+      success: true,
+      data: decryptedChat,
+    });
   } catch (error) {
     next(error);
   }

@@ -35,6 +35,7 @@ const { findOneSubscription } = require("../services/subscriptionService");
 const { Plans, findOnePlan } = require("../services/planServices");
 const { publisher } = require("../config/redis");
 const sendFCMNotification = require("../helper/sendFCM");
+const MESSAGES = require("../helper/messages");
 
 // send message
 // POST /api/v1/message/send
@@ -57,14 +58,14 @@ const sendMessage = async (req, res, next) => {
     if (!chat) {
       return res
         .status(404)
-        .json({ message: "Chat not found", success: false });
+        .json({ message: MESSAGES.ERROR.CHAT_NOT_FOUND, success: false });
     }
 
     // check user is a part of chat or not
     if (chat.user_one !== senderId && chat.user_two !== senderId) {
       return res
         .status(403)
-        .json({ message: "Sender is not Authorized", success: false });
+        .json({ message: MESSAGES.ERROR.USER_UNAUTHORIZED, success: false });
     }
 
     // check for receiverId
@@ -110,7 +111,7 @@ const sendMessage = async (req, res, next) => {
     if (dailyMessage !== null && currCount > dailyMessage) {
       return res
         .status(403)
-        .json({ message: "Daily message limit reached.", success: false });
+        .json({ message: MESSAGES.ERROR.DAILY_MESSAGE_LIMIT, success: false });
     }
 
     let images = [];
@@ -138,9 +139,10 @@ const sendMessage = async (req, res, next) => {
       });
 
       if (!parentMsg) {
-        return res
-          .status(400)
-          .json({ message: "Invalid reply message", success: false });
+        return res.status(400).json({
+          message: MESSAGES.ERROR.INVALID_REPLY_MESSAGE,
+          success: false,
+        });
       }
     }
 
@@ -150,7 +152,7 @@ const sendMessage = async (req, res, next) => {
     if (chatSetting.is_block === true) {
       return res
         .status(400)
-        .json({ message: "You are block in this chat", success: false });
+        .json({ message: MESSAGES.ERROR.USER_BLOCKED, success: false });
     }
 
     const msg = await createMessage({
@@ -228,7 +230,7 @@ const sendMessage = async (req, res, next) => {
     };
 
     await publisher.publish("MESSAGES", JSON.stringify(responseMsg));
-    console.log("Message publish on redis");
+    console.log("<============== Message publish on redis ============== >");
 
     io.to(receiverId.toString()).emit("new_noti", {
       message: `${user.name} sent you a message`,
@@ -240,7 +242,7 @@ const sendMessage = async (req, res, next) => {
         receiver.fcm_token,
         `New message from ${user.name}`,
         text ? text.substring(0, 50) : "Sent a file",
-        { chatId: chatId.toString(), path: "chat" }
+        { chatId: chatId.toString(), path: "chat" },
       );
     }
 
@@ -258,7 +260,7 @@ const sendMessage = async (req, res, next) => {
     await updateChat({ updatedAt: new Date() }, { where: { id: chatId } });
 
     return res.status(200).json({
-      message: "Message created ",
+      message: MESSAGES.MESSAGE.SEND_MESSAGE_SUCCESS,
       success: true,
       msg: responseMsg,
     });
@@ -274,7 +276,7 @@ const getMessage = async (req, res, next) => {
   try {
     const userId = req.id;
     const { chatId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 20 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
 
@@ -288,14 +290,14 @@ const getMessage = async (req, res, next) => {
     if (!chat) {
       return res
         .status(404)
-        .json({ message: "Chat not found ", success: false });
+        .json({ message: MESSAGES.ERROR.CHAT_NOT_FOUND, success: false });
     }
 
     // valid user or not
     if (chat.user_one !== userId && chat.user_two !== userId) {
       return res
         .status(403)
-        .json({ message: "User not Authorized", success: false });
+        .json({ message: MESSAGES.ERROR.USER_UNAUTHORIZED, success: false });
     }
 
     await updateNotification(
@@ -349,11 +351,19 @@ const getMessage = async (req, res, next) => {
     });
 
     rows.forEach((item) => {
-      item.text = decryptMessage(item.text);
+      if (item.text && !item.delete_for_all) {
+        try {
+          item.text = decryptMessage(item.text);
+        } catch (error) {
+          item.text = "Error decrypting message";
+        }
+      } else if (item.delete_for_all) {
+        item.text = "This message was deleted";
+      }
     });
 
     return res.status(200).json({
-      message: "Fetched all messages ",
+      message: MESSAGES.MESSAGE.GET_ALL_MESSAGES_SUCCESS,
       success: true,
       messages: rows.reverse(),
       totalMessages: count,
@@ -379,7 +389,7 @@ const pinMessage = async (req, res, next) => {
     if (!chatId) {
       return res
         .status(400)
-        .json({ message: "Chat id required", success: false });
+        .json({ message: MESSAGES.ERROR.CHAT_ID_REQUIRED, success: false });
     }
 
     const chat = await findChatByKey(chatId);
@@ -387,19 +397,21 @@ const pinMessage = async (req, res, next) => {
     if (!chat) {
       return res
         .status(404)
-        .json({ message: "Chat not found", success: false });
+        .json({ message: MESSAGES.ERROR.CHAT_NOT_FOUND, success: false });
     }
 
     const msg = await findMessageByKey(msgId);
 
     if (!msg) {
-      return res.status(404).json({ message: "Msg not found", success: false });
+      return res
+        .status(404)
+        .json({ message: MESSAGES.ERROR.MESSAGE_NOT_FOUND, success: false });
     }
 
     if (msg.sender_id !== userId && msg.receiver_id !== userId) {
       return res
         .status(401)
-        .json({ message: "Your not authorized", success: false });
+        .json({ message: MESSAGES.ERROR.USER_UNAUTHORIZED, success: false });
     }
 
     const subscription = await findOneSubscription({
@@ -409,7 +421,7 @@ const pinMessage = async (req, res, next) => {
     if (!subscription) {
       return res
         .status(404)
-        .json({ message: "There no subscription for you", success: false });
+        .json({ message: MESSAGES.ERROR.YOUR_ARE_NOT_SUB, success: false });
     }
 
     if (msg.is_pin === true) {
@@ -424,7 +436,7 @@ const pinMessage = async (req, res, next) => {
       );
 
       return res.status(200).json({
-        message: "Message unpinned successfully",
+        message: MESSAGES.MESSAGE.MESSAGE_UNPIN_SUCCESS,
         success: true,
       });
     }
@@ -457,16 +469,18 @@ const pinMessage = async (req, res, next) => {
       },
     );
 
-    return res
-      .status(200)
-      .json({ message: "Msg pinned successfully", success: true, data: msg });
+    return res.status(200).json({
+      message: MESSAGES.MESSAGE.MESSAGE_PIN_SUCCESS,
+      success: true,
+      data: msg,
+    });
   } catch (error) {
     next(error);
   }
 };
 
 // delete message for all
-// DELETE /api/v1/message/delete/all/:msgId
+// PATCH /api/v1/message/delete/all/:msgId
 // private access
 const deleteForAll = async (req, res, next) => {
   try {
@@ -480,21 +494,39 @@ const deleteForAll = async (req, res, next) => {
     if (!msg) {
       return res
         .status(404)
-        .json({ message: "Message not found", success: false });
+        .json({ message: MESSAGES.ERROR.MESSAGE_NOT_FOUND, success: false });
     }
 
     if (msg.sender_id !== userId) {
       return res
         .status(400)
-        .json({ message: "Sender can delete for everyone", success: false });
+        .json({ message: MESSAGES.ERROR.USER_UNAUTHORIZED, success: false });
     }
 
     msg.delete_for_all = true;
     await msg.save();
 
-    return res
-      .status(200)
-      .json({ message: "Message delete for everyone", success: true });
+    const lastMsg = await findOneMessage({
+      where: { chat_id: msg.chat_id, delete_for_all: false },
+      order: [["createdAt", "DESC"]],
+    });
+
+    if (lastMsg) {
+      await updateChat(
+        { last_message: lastMsg.text, last_message_time: lastMsg.createdAt },
+        { where: { id: msg.chat_id } },
+      );
+    } else {
+      await updateChat(
+        { last_message: null, last_message_time: new Date() },
+        { where: { id: msg.chat_id } },
+      );
+    }
+
+    return res.status(200).json({
+      message: MESSAGES.MESSAGE.MESSAGE_DELETE_FOR_EVERYONE,
+      success: true,
+    });
   } catch (error) {
     next(error);
   }
@@ -506,18 +538,20 @@ const deleteForAll = async (req, res, next) => {
 const searchMessageInChat = async (req, res, next) => {
   try {
     const userId = req.id;
-    const { chatId, text, limit = 10 } = req.query;
+    const { chatId, text, limit = 20 } = req.query;
 
     logger.info(`${req.method} ${req.url}`);
 
     if (!chatId) {
       return res
         .status(400)
-        .json({ message: "Chat id required", success: false });
+        .json({ message: MESSAGES.ERROR.CHAT_ID_REQUIRED, success: false });
     }
 
     if (!text) {
-      return res.status(400).json({ message: "Text required", success: false });
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.TEXT_REQUIRED, success: false });
     }
 
     const pageSize = parseInt(limit);
@@ -560,7 +594,7 @@ const searchMessageInChat = async (req, res, next) => {
     });
 
     return res.status(200).json({
-      message: "search message",
+      message: MESSAGES.MESSAGE.SEARCH_MESSAGE_SUCCESS,
       success: true,
       msg: results,
       totalResults: results.length,
@@ -608,12 +642,18 @@ const getAllStarMessages = async (req, res, next) => {
       offset: PageOffset,
     });
 
+    if (!starMsg) {
+      return res
+        .status(400)
+        .json({ message: MESSAGES.MESSAGE.NO_STAR_MESSAGE, success: false });
+    }
+
     starMsg.forEach((item) => {
       item.text = decryptMessage(item.text);
     });
 
-    res.status(200).json({
-      message: "Started messages fetch successfully",
+    return res.status(200).json({
+      message: MESSAGES.MESSAGE.GEL_ALL_STAR_MSG,
       success: true,
       data: starMsg,
     });
@@ -640,7 +680,7 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
     if (!chatId) {
       return res
         .status(400)
-        .json({ message: "Chat id required", success: false });
+        .json({ message: MESSAGES.ERROR.CHAT_ID_REQUIRED, success: false });
     }
 
     const chat = await findChatByKey(chatId);
@@ -648,7 +688,7 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
     if (!chat) {
       return res
         .status(404)
-        .json({ message: "chat not found", success: false });
+        .json({ message: MESSAGES.ERROR.CHAT_NOT_FOUND, success: false });
     }
 
     const starMsg = await findAllMessage({
@@ -684,11 +724,11 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
     if (!starMsg) {
       return res
         .status(400)
-        .json({ message: "There is not star message for you", success: false });
+        .json({ message: MESSAGES.MESSAGE.NO_STAR_MESSAGE, success: false });
     }
 
     return res.status(200).json({
-      message: "Fetch all star message in chat successfully",
+      message: MESSAGES.MESSAGE.GEL_ALL_STAR_MSG,
       success: true,
       data: starMsg,
     });
@@ -710,9 +750,10 @@ const editMessage = async (req, res, next) => {
     logger.info(`${req.method} ${req.url}`);
 
     if (!msgId && !chatId) {
-      return res
-        .status(400)
-        .json({ message: "Chat and Message Id required", success: false });
+      return res.status(400).json({
+        message: MESSAGES.ERROR.CHAT_AND_MESSAGE_ID_REQUIRED,
+        success: false,
+      });
     }
 
     const chat = await findChatByKey(chatId);
@@ -721,17 +762,19 @@ const editMessage = async (req, res, next) => {
     if (!chat) {
       return res
         .status(404)
-        .json({ message: "Chat not found", success: false });
+        .json({ message: MESSAGES.ERROR.CHAT_NOT_FOUND, success: false });
     }
 
     if (!msg) {
-      return res.status(404).json({ message: "Msg not found", success: false });
+      return res
+        .status(404)
+        .json({ message: MESSAGES.ERROR.MESSAGE_NOT_FOUND, success: false });
     }
 
     if (userId !== msg.sender_id) {
       return res
         .status(401)
-        .json({ message: "Not Authorized", success: false });
+        .json({ message: MESSAGES.ERROR.NOT_AUTHORIZED, success: false });
     }
 
     const updatedMsg = await updateMessage(
@@ -753,7 +796,7 @@ const editMessage = async (req, res, next) => {
       });
 
       return res.status(200).json({
-        message: "Message updated successfully",
+        message: MESSAGES.MESSAGE.MESSAGE_UPDATE_SUCCESS,
         success: true,
         data: {
           id: updatedMessage.id,
@@ -762,7 +805,9 @@ const editMessage = async (req, res, next) => {
       });
     }
 
-    res.status(400).json({ message: "Something went wrong", success: false });
+    return res
+      .status(400)
+      .json({ message: MESSAGES.ERROR.SOMETHING_WENT_WRONG, success: false });
   } catch (error) {
     next(error);
   }

@@ -23,6 +23,7 @@ const { getIo } = require("../socket");
 const { createSubscription } = require("../services/subscriptionService");
 const { generateOtp, expiresIn } = require("../helper/generateOtp");
 const sendEmail = require("../helper/sendMail");
+const MESSAGES = require("../helper/messages");
 
 // register
 // POST /api/v1/users/register
@@ -119,7 +120,7 @@ const register = async (req, res, next) => {
       });
 
       return res.status(200).json({
-        message: "User registered successfully",
+        message: MESSAGES.AUTH.REGISTER_SUCCESS,
         success: true,
         data: userDetail,
       });
@@ -127,7 +128,7 @@ const register = async (req, res, next) => {
 
     return res
       .status(400)
-      .json({ message: "Something went wrong", success: false });
+      .json({ message: MESSAGES.ERROR.REGISTER_FAILED, success: false });
   } catch (error) {
     next(error);
   }
@@ -157,7 +158,7 @@ const login = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "User not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
     if (user.isVerified === false) {
@@ -167,13 +168,13 @@ const login = async (req, res, next) => {
       await user.save();
       return res
         .status(400)
-        .json({ message: "Please verify your email", success: false });
+        .json({ message: MESSAGES.ERROR.VERIFY_EMAIL, success: false });
     }
 
     if (user.isDeleted === true) {
       return res
         .status(401)
-        .json({ message: "User does not exists", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
     // compare password
@@ -181,7 +182,7 @@ const login = async (req, res, next) => {
 
     if (!isMatch) {
       return res.status(400).json({
-        message: "Invalid email or password",
+        message: MESSAGES.ERROR.INVALID_EMAIL_OR_PASSWORD,
         success: false,
       });
     }
@@ -217,7 +218,7 @@ const login = async (req, res, next) => {
     };
 
     return res.status(200).json({
-      message: "User Login successfully",
+      message: MESSAGES.AUTH.LOGIN_SUCCESS,
       success: true,
       token: token,
       user: userDetail,
@@ -246,12 +247,14 @@ const profile = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "User not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
-    return res
-      .status(200)
-      .json({ message: "User profile", success: true, data: user });
+    return res.status(200).json({
+      message: MESSAGES.AUTH.GET_PROFILE_SUCCESS,
+      success: true,
+      data: user,
+    });
   } catch (error) {
     next(error);
   }
@@ -269,7 +272,7 @@ const otherUserProfile = async (req, res, next) => {
     if (!id) {
       return res
         .status(400)
-        .json({ message: "Other user id required", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
     const user = await findOneUser({
@@ -282,12 +285,14 @@ const otherUserProfile = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "User not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
-    return res
-      .status(200)
-      .json({ message: "User profile", success: true, data: user });
+    return res.status(200).json({
+      message: MESSAGES.AUTH.GET_OTHER_PROFILE_SUCCESS,
+      success: true,
+      data: user,
+    });
   } catch (error) {
     next();
   }
@@ -297,7 +302,9 @@ const otherUserProfile = async (req, res, next) => {
 const getAllUser = async (req, res, next) => {
   try {
     const id = req.id;
+
     logger.info(`${req.method} ${req.url}`);
+
     const data = await findAllUser({
       where: {
         id: {
@@ -311,7 +318,9 @@ const getAllUser = async (req, res, next) => {
       },
     });
 
-    res.status(200).json({ message: "Fetched all user", success: true, data });
+    return res
+      .status(200)
+      .json({ message: MESSAGES.AUTH.GET_USERS_SUCCESS, success: true, data });
   } catch (error) {
     next(error);
   }
@@ -354,7 +363,7 @@ const update = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "User not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
     switch (action) {
@@ -372,18 +381,18 @@ const update = async (req, res, next) => {
 
         return res
           .status(200)
-          .json({ message: "User updated successfully ", success: true });
+          .json({ message: MESSAGES.AUTH.UPDATE_USER_SUCCESS, success: true });
 
       case "resetpassword":
         if (newPassword !== confirmPassword) {
           return res.status(400).json({
-            message: "New password and Confirm password does not match ",
+            message: MESSAGES.ERROR.NEW_AND_CONF_PASS,
           });
         }
 
         if (oldPassword === newPassword) {
           return res.status(400).json({
-            message: "Old password and New password not be same",
+            message: MESSAGES.ERROR.OLD_AND_NEW_PASS,
             success: false,
           });
         }
@@ -391,9 +400,10 @@ const update = async (req, res, next) => {
         const isMatch = await bcrypt.compare(oldPassword, user.password);
 
         if (!isMatch) {
-          return res
-            .status(400)
-            .json({ message: "Old password does not match", success: false });
+          return res.status(400).json({
+            message: MESSAGES.ERROR.OLD_PASS_NOT_MATCH,
+            success: false,
+          });
         }
 
         // hased password
@@ -409,7 +419,7 @@ const update = async (req, res, next) => {
         });
 
         return res.status(200).json({
-          message: "User password updated successfully ",
+          message: MESSAGES.AUTH.UPDATE_PASSWORD_SUCCESS,
           success: true,
         });
     }
@@ -433,7 +443,7 @@ const deleteUser = async (req, res, next) => {
     if (!user) {
       return res
         .status(401)
-        .json({ message: "User not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
     // update is isDeleted col
@@ -443,7 +453,7 @@ const deleteUser = async (req, res, next) => {
     );
 
     res.status(200).json({
-      message: "User deleted successfully",
+      message: MESSAGES.AUTH.DELETE_USER_SUCCESS,
       success: true,
     });
   } catch (error) {
@@ -461,7 +471,7 @@ const uploadImage = async (req, res, next) => {
     if (!req.file) {
       return res
         .status(400)
-        .json({ message: "Error in file upload", success: false });
+        .json({ message: MESSAGES.ERROR.FILE_UPLOAD_FAILED, success: false });
     }
 
     // check for user in DB
@@ -473,7 +483,7 @@ const uploadImage = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "User not found ", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
     // implement cloudinary upload image
@@ -484,8 +494,8 @@ const uploadImage = async (req, res, next) => {
 
     res.status(200).json({
       message: user.photo
-        ? "Image updated successfully"
-        : "Image upload successfully",
+        ? MESSAGES.AUTH.UPDATE_IMAGE_SUCCESS
+        : MESSAGES.AUTH.UPLOAD_IMAGE_SUCCESS,
       success: true,
       imageurl: imageUrl,
     });
@@ -506,7 +516,7 @@ const logout = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "User not found ", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
     await updateUser(
@@ -516,9 +526,9 @@ const logout = async (req, res, next) => {
 
     io.emit("user_offline", id);
 
-    res
+    return res
       .status(200)
-      .json({ message: "User logout successfully", success: true });
+      .json({ message: MESSAGES.AUTH.LOGOUT_SUCCESS, success: true });
   } catch (error) {
     next(error);
   }
@@ -532,7 +542,7 @@ const searchUsers = async (req, res, next) => {
     const { name, limit = "4" } = req.query;
 
     if (!name) {
-      return res.status(400).json({ message: "Search text required" });
+      return res.status(400).json({ message: MESSAGES.ERROR.TEXT_REQUIRED });
     }
 
     const user = await findAllUser({
@@ -563,10 +573,15 @@ const searchUsers = async (req, res, next) => {
     if (!user) {
       return res
         .status(400)
-        .json({ message: "Text doesn't match with any one", success: false });
+        .json({ message: MESSAGES.ERROR.NO_USER_FOUND, success: false });
     }
 
-    res.status(200).json({ success: true, data: user, limit: limit });
+    return res.status(200).json({
+      message: MESSAGES.AUTH.GET_USERS_SUCCESS,
+      success: true,
+      data: user,
+      limit: limit,
+    });
   } catch (error) {
     next(error);
   }
@@ -593,7 +608,7 @@ const sendOtp = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "user not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_FOUND, success: false });
     }
 
     // generate otp
@@ -640,7 +655,7 @@ const sendOtp = async (req, res, next) => {
 
     return res
       .status(200)
-      .json({ message: "Otp sent successfully", success: true });
+      .json({ message: MESSAGES.AUTH.SEND_OTP_SUCCESS, success: true });
   } catch (error) {
     next(error);
   }
@@ -668,14 +683,14 @@ const verifyOtp = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "Email not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_FOUND, success: false });
     }
 
     // check otp feilds
     if (user.otp === null) {
       return res
         .status(401)
-        .json({ message: "Otp is not present", success: false });
+        .json({ message: MESSAGES.ERROR.OTP_REQUIRED, success: false });
     }
 
     if (user.otp_purpose === "forgot_password" && user.isVerified === false) {
@@ -683,7 +698,9 @@ const verifyOtp = async (req, res, next) => {
       user.expiresAt = null;
       user.otp_purpose = null;
       await user.save();
-      return res.status(400).json({ message: "Your are not verified" });
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.USER_NOT_VERIFIED });
     }
 
     // comapre otp
@@ -692,14 +709,16 @@ const verifyOtp = async (req, res, next) => {
     if (!isMatch) {
       return res
         .status(400)
-        .json({ message: "Otp does not match", success: false });
+        .json({ message: MESSAGES.ERROR.INVALID_OTP, success: false });
     }
 
     if (new Date() > user.expiresAt) {
       user.otp = null;
       user.expiresAt = null;
       await user.save();
-      return res.status(400).json({ message: "Otp expired", success: false });
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.INVALID_OTP, success: false });
     }
 
     // // update isVerified
@@ -719,7 +738,7 @@ const verifyOtp = async (req, res, next) => {
     });
 
     return res.status(200).json({
-      message: "User verified successfully",
+      message: MESSAGES.AUTH.USER_VERIFY_SUCCESS,
       success: true,
       token: token,
     });
@@ -749,7 +768,7 @@ const forgotPassword = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "User not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_FOUND, success: false });
     }
 
     if (user.isVerified === false) {
@@ -758,7 +777,7 @@ const forgotPassword = async (req, res, next) => {
       await user.save();
       return res
         .status(400)
-        .json({ message: "User not verified", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_VERIFIED, success: false });
     }
 
     // hash newPass
@@ -769,7 +788,7 @@ const forgotPassword = async (req, res, next) => {
 
     return res
       .status(200)
-      .json({ message: "Password reset successfully", success: true });
+      .json({ message: MESSAGES.AUTH.UPDATE_PASSWORD_SUCCESS, success: true });
   } catch (error) {
     next(error);
   }
@@ -785,11 +804,11 @@ const getStripeId = async (req, res, next) => {
     if (!user) {
       return res
         .status(404)
-        .json({ message: "User not found", success: false });
+        .json({ message: MESSAGES.ERROR.USER_NOT_FOUND, success: false });
     }
 
     return res.status(200).json({
-      message: "Stripe customer id",
+      message: MESSAGES.STRIPE.GET_STRIPE_ID_SUCCESS,
       success: true,
       id: user.stripe_customer_id,
     });
@@ -809,17 +828,23 @@ const updateFCMToken = async (req, res, next) => {
     logger.info(`${req.method} ${req.url}`);
 
     if (!fcm_token) {
-      return res.status(400).json({ message: "FCM token is required", success: false });
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.FCM_TOKEN_REQUIRED, success: false });
     }
 
     const user = await findUserByKey(id);
     if (!user) {
-      return res.status(404).json({ message: "User not found", success: false });
+      return res
+        .status(404)
+        .json({ message: MESSAGES.ERROR.USER_NOT_FOUND, success: false });
     }
 
     await updateUser({ fcm_token: fcm_token }, { where: { id } });
 
-    res.status(200).json({ message: "FCM token updated successfully", success: true });
+    return res
+      .status(200)
+      .json({ message: MESSAGES.AUTH.UPDATE_FCM_SUCCESS, success: true });
   } catch (error) {
     next(error);
   }
