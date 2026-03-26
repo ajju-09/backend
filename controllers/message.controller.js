@@ -34,6 +34,7 @@ const { getCacheData, increment, expireKey } = require("../redis/redis.client");
 const { findOneSubscription } = require("../services/subscriptionService");
 const { Plans, findOnePlan } = require("../services/planServices");
 const { publisher } = require("../config/redis");
+const sendFCMNotification = require("../helper/sendFCM");
 
 // send message
 // POST /api/v1/message/send
@@ -70,6 +71,8 @@ const sendMessage = async (req, res, next) => {
     const receiverId =
       chat.user_one === senderId ? chat.user_two : chat.user_one;
 
+    const receiver = await findUserByKey(receiverId);
+
     const subscription = await findOneSubscription({
       where: {
         user_id: senderId,
@@ -96,7 +99,7 @@ const sendMessage = async (req, res, next) => {
       dailyMessage = subscription.Plan.daily_message_limit;
     }
 
-    const tempKey = `user:${senderId}:${new Date().toISOString().split("T")[0]}`;
+    const tempKey = `user:${senderId}:chat:${chatId}:${new Date().toISOString().split("T")[0]}`;
 
     const currCount = await increment(tempKey);
 
@@ -232,6 +235,15 @@ const sendMessage = async (req, res, next) => {
       chatId: chatId,
     });
 
+    if (receiver && receiver.fcm_token) {
+      await sendFCMNotification(
+        receiver.fcm_token,
+        `New message from ${user.name}`,
+        text ? text.substring(0, 50) : "Sent a file",
+        { chatId: chatId.toString(), path: "chat" }
+      );
+    }
+
     if (text !== null && text !== "") {
       await createNotification({
         sender_id: senderId,
@@ -245,7 +257,7 @@ const sendMessage = async (req, res, next) => {
 
     await updateChat({ updatedAt: new Date() }, { where: { id: chatId } });
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Message created ",
       success: true,
       msg: responseMsg,
@@ -297,7 +309,6 @@ const getMessage = async (req, res, next) => {
     const { count, rows } = await db.Message.findAndCountAll({
       where: {
         chat_id: chatId,
-        delete_for_all: false,
         [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
         [Op.and]: [
           db.sequelize.literal(`
@@ -341,7 +352,7 @@ const getMessage = async (req, res, next) => {
       item.text = decryptMessage(item.text);
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Fetched all messages ",
       success: true,
       messages: rows.reverse(),
@@ -514,7 +525,7 @@ const searchMessageInChat = async (req, res, next) => {
     const msg = await findAllMessage({
       where: {
         chat_id: chatId,
-        delete_for_all: false,
+        [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
         [Op.and]: [
           db.sequelize.literal(`
             NOT EXISTS (
@@ -526,21 +537,22 @@ const searchMessageInChat = async (req, res, next) => {
         ],
       },
       order: [["createdAt", "DESC"]],
-      attributes: ["id", "text"],
+      attributes: ["id", "text", "delete_for_all"],
     });
 
     const results = [];
 
-    msg.forEach((msg, idx) => {
-      if (!msg.text) return;
+    msg.forEach((message, idx) => {
+      if (message.delete_for_all) return;
+      if (!message.text) return;
 
-      const decrypted = decryptMessage(msg.text);
+      const decrypted = decryptMessage(message.text);
 
       if (decrypted.toLowerCase().includes(text.toLowerCase())) {
         const pageNumber = Math.floor(idx / pageSize) + 1;
 
         results.push({
-          msgId: msg.id,
+          msgId: message.id,
           text: decrypted,
           page: pageNumber,
         });

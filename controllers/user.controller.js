@@ -21,7 +21,6 @@ const {
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
 const { getIo } = require("../socket");
 const { createSubscription } = require("../services/subscriptionService");
-const { sendMessage, sendOtpMessage } = require("../helper/sendSms");
 const { generateOtp, expiresIn } = require("../helper/generateOtp");
 const sendEmail = require("../helper/sendMail");
 
@@ -150,10 +149,10 @@ const login = async (req, res, next) => {
     }
 
     logger.info(`${req.method} ${req.url}`);
-    const { phone, password } = value;
+    const { email, password } = value;
 
     // find user by email
-    const user = await findSingleUser({ where: { phone: phone } });
+    const user = await findSingleUser({ where: { email: email } });
 
     if (!user) {
       return res
@@ -195,9 +194,9 @@ const login = async (req, res, next) => {
 
     const token = generateToken(data);
 
-    if (user) {
-      await sendMessage(`+91${phone}`);
-    }
+    // if (user) {
+    //   await sendMessage(`+91${phone}`);
+    // }
 
     await updateUser(
       { isLogin: true, otp: null, otp_purpose: null, expiresAt: null },
@@ -799,6 +798,33 @@ const getStripeId = async (req, res, next) => {
   }
 };
 
+// update FCM Token
+// PUT /api/v1/users/update-fcm
+// private access
+const updateFCMToken = async (req, res, next) => {
+  try {
+    const id = req.id;
+    const { fcm_token } = req.body;
+
+    logger.info(`${req.method} ${req.url}`);
+
+    if (!fcm_token) {
+      return res.status(400).json({ message: "FCM token is required", success: false });
+    }
+
+    const user = await findUserByKey(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found", success: false });
+    }
+
+    await updateUser({ fcm_token: fcm_token }, { where: { id } });
+
+    res.status(200).json({ message: "FCM token updated successfully", success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -814,4 +840,5 @@ module.exports = {
   forgotPassword,
   getStripeId,
   otherUserProfile,
+  updateFCMToken,
 };

@@ -30,10 +30,10 @@ const signUpSchema = Joi.object({
 });
 
 const loginSchema = Joi.object({
-  phone: Joi.number().integer().required().messages({
-    "string.pattern.base": "Invalid phone number",
+  email: Joi.string().email().required().lowercase().messages({
+    "string.email": "Enter valid email",
+    "any.required": "Email is required",
   }),
-
   password: Joi.string()
     .min(6)
     .required()

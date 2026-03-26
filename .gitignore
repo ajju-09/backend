@@ -6,3 +6,4 @@ profileimage
 app.log
 error.log
 ratelimit.log
+serviceAccountKey.json

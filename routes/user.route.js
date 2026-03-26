@@ -14,6 +14,7 @@ const {
   forgotPassword,
   getStripeId,
   otherUserProfile,
+  updateFCMToken,
 } = require("../controllers/user.controller");
 const auth = require("../middlewares/auth.middleware");
 const imageAuth = require("../middlewares/singleUpload.middleware");
@@ -33,6 +34,7 @@ router.get("/search", auth, searchUsers);
 router.get("/get-stripe-id", auth, getStripeId);
 
 router.put("/update", auth, imageAuth, update);
+router.put("/update-fcm", auth, updateFCMToken);
 
 router.delete("/delete", auth, deleteUser);
 
