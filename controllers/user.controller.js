@@ -64,40 +64,65 @@ const register = async (req, res, next) => {
     const existedPhone = await findSingleUser({ where: { phone } });
 
     // check for this email already exists or not
-    if (existedEmail && existedPhone) {
-      // await updateUser(
-      //   {
-      //     name: name,
-      //     password: await bcrypt.hash(password, 10),
-      //     phone: phone,
-      //     isDeleted: false,
-      //   },
-      //   { where: { email: email } },
-      // );
+    if (existedEmail || existedPhone) {
+      const targetUser = existedEmail || existedPhone;
+      
+      if (targetUser.isDeleted) {
+        // User was soft-deleted, reviving account with new info
+        const hashPassword = await bcrypt.hash(password, 10);
+        
+        await updateUser(
+          {
+            name: name,
+            email: email,
+            phone: phone,
+            password: hashPassword,
+            isVerified: false,
+            isDeleted: false,
+            deletedAt: null,
+            photo: null,
+            otp: null,
+            otp_purpose: null,
+            expiresAt: null
+          },
+          { where: { id: targetUser.id } }
+        );
 
-      // if (existedEmail.isVerified === true) {
-      //   existedEmail.isLogin = true;
-      //   await existedEmail.save();
-      // }
+        const userDetail = {
+          id: targetUser.id,
+          name: name,
+          email: email,
+          phone: phone,
+          photo: null,
+          is_online: false,
+          last_seen: null,
+          isDeleted: false,
+          isLogin: false,
+          createdAt: targetUser.createdAt,
+          updatedAt: new Date(),
+        };
 
-      // const data = {
-      //   id: existedEmail.id,
-      //   name: existedEmail.name,
-      //   email: existedEmail.email,
-      //   phone: existedEmail.phone,
-      //   is_online: existedEmail.is_online,
-      //   last_seen: existedEmail.last_seen,
-      //   isDeleted: existedEmail.isDeleted,
-      //   isLogin: existedEmail.isLogin,
-      //   createdAt: existedEmail.createdAt,
-      //   updatedAt: existedEmail.updatedAt,
-      // };
+        // Create new active subscription
+        await createSubscription({
+          user_id: userDetail.id,
+          plan_id: 1,
+          status: "Active",
+          auto_renew: true,
+        });
 
-      // return res.status(200).json({
-      //   message: "Welcome back",
-      //   success: true,
-      //   data: data,
-      // });
+        // Send welcome email via queue
+        await emailQueue.add("welcome-email", {
+          to: email,
+          subject: "Welcome to ChatMe! 🎉",
+          html: welcomeTemplate(name, "https://chatme.com"),
+        });
+
+        return res.status(200).json({
+          message: MESSAGES.AUTH.REGISTER_SUCCESS,
+          success: true,
+          data: userDetail,
+        });
+      }
 
       return res
         .status(400)
@@ -472,37 +497,30 @@ const deleteUser = async (req, res, next) => {
         .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
-    // update is isDeleted col
-    // await updateUser(
-    //   { isDeleted: true, isLogin: false, is_online: 0, isVerified: false },
-    //   { where: { id: id } },
-    // );
+    // Soft delete the user flag
+    await updateUser(
+      { isDeleted: true, deletedAt: new Date(), isLogin: false, is_online: false, isVerified: false, fcm_token: null },
+      { where: { id: id } },
+    );
 
-    // Destroy all related data automatically
-    await destroyMessageSetting({ where: { user_id: id } });
-    await destroyChatSetting({ where: { user_id: id } });
-    await destroyTransaction({ where: { user_id: id } });
-    await destroyAllNotification({
-      where: { [Op.or]: [{ sender_id: id }, { receiver_id: id }] },
-    });
+    // Cancel active subscription immediately at soft delete
+    const { updateSubscription } = require("../services/subscriptionService");
+    await updateSubscription(
+      { status: "Cancel", auto_renew: false },
+      { where: { user_id: id } }
+    );
 
-    await destroyMessage({
-      where: { [Op.or]: [{ sender_id: id }, { receiver_id: id }] },
-    });
-
-    await destroyChat({
-      where: { [Op.or]: [{ user_one: id }, { user_two: id }] },
-    });
-
-    await destroySubscription({ where: { user_id: id } });
-    await destroyUser({ where: { id: id } });
+    // Enqueue 30-day delayed hard delete purge job
+    const { userCleanupQueue } = require("../redis/queues");
+    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+    await userCleanupQueue.add("hard-delete-user", { userId: id }, { delay: thirtyDaysInMs });
 
     return res.status(200).json({
       message: MESSAGES.AUTH.DELETE_USER_SUCCESS,
       success: true,
     });
   } catch (error) {
-    next();
+    next(error);
   }
 };
 
