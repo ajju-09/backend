@@ -17,10 +17,7 @@ const {
   countMessages,
 } = require("../services/messageService");
 const db = require("../models");
-const {
-  createNotification,
-  updateNotification,
-} = require("../services/notificationServices");
+const { updateNotification } = require("../services/notificationServices");
 const {
   bulkCreateMessageSetting,
   MessageSetting,
@@ -31,7 +28,6 @@ const {
   findOneChatSetting,
 } = require("../services/chatSettingServices");
 const {
-  getCacheData,
   increment,
   expireKey,
   clearCacheData,
@@ -42,6 +38,7 @@ const { publisher } = require("../config/redis");
 const sendFCMNotification = require("../helper/sendFCM");
 const MESSAGES = require("../helper/messages");
 const { Reaction } = require("../services/reactionServices");
+const { notificationQueue } = require("../redis/queues");
 
 // send message
 // POST /api/v1/message/send
@@ -129,7 +126,7 @@ const sendMessage = async (req, res, next) => {
       );
       images = uploads.map((img) => img.secure_url);
 
-      await createNotification({
+      await notificationQueue.add("sent-file-notification", {
         sender_id: senderId,
         receiver_id: receiverId,
         chat_id: chatId,
@@ -239,7 +236,7 @@ const sendMessage = async (req, res, next) => {
     }
 
     if (text) {
-      await createNotification({
+      await notificationQueue.add("new-message-notification", {
         sender_id: senderId,
         receiver_id: receiverId,
         chat_id: chatId,

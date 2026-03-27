@@ -8,6 +8,7 @@ const {
 } = require("../services/reactionServices");
 const MESSAGES = require("../helper/messages");
 const { getIo } = require("../socket");
+const { notificationQueue } = require("../redis/queues");
 
 // Add or remove a reaction (toggle)
 // POST /api/v1/message/react
@@ -117,6 +118,18 @@ const reactToMessage = async (req, res, next) => {
       emoji,
       chatId: msg.chat_id,
       reactionId: reaction.id,
+    });
+
+    const targetUserId =
+      msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
+
+    await notificationQueue.add("reaction-notification", {
+      sender_id: userId,
+      receiver_id: targetUserId,
+      chat_id: msg.chat_id,
+      title: "New Reaction",
+      message: `Someone reacted to a message with ${emoji}`,
+      seen: false,
     });
 
     return res.status(200).json({

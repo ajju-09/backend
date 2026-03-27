@@ -6,7 +6,6 @@ npm-debug.log
 Dockerfile
 .dockerignore
 README.md
-migrations
 seeders
 app.log
 error.log

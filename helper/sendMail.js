@@ -23,27 +23,36 @@ const sendEmail = async (options, purpose) => {
 
   let mail;
 
-  switch (purpose) {
-    case "otp":
-      mail = {
-        from: "chatme@gmail.com",
-        to: options.email,
-        subject: `${options.otp} is your account verification code`,
-        html: otpTemplate(options.otp),
-      };
-      break;
+  if (!purpose && options.html && options.subject) {
+    mail = {
+      from: "chatme@gmail.com",
+      to: options.to || options.email,
+      subject: options.subject,
+      html: options.html,
+    };
+  } else {
+    switch (purpose) {
+      case "otp":
+        mail = {
+          from: "chatme@gmail.com",
+          to: options.email,
+          subject: `${options.otp} is your account verification code`,
+          html: otpTemplate(options.otp),
+        };
+        break;
 
-    case "invoice":
-      mail = {
-        from: "chatme@gmail.com",
-        to: options.email,
-        subject: "Payment to ChatMe is Successfull",
-        html: invoiceTemplate(options.name, options.url, options.number),
-      };
-      break;
+      case "invoice":
+        mail = {
+          from: "chatme@gmail.com",
+          to: options.email,
+          subject: "Payment to ChatMe is Successfull",
+          html: invoiceTemplate(options.name, options.url, options.number),
+        };
+        break;
 
-    default:
-      console.log("Invalid email purpose");
+      default:
+        console.log("Invalid email purpose");
+    }
   }
 
   try {

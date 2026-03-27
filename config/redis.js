@@ -16,4 +16,11 @@ const publisher = createClient(redisConfig);
 
 const subscriber = createClient(redisConfig);
 
-module.exports = { client, publisher, subscriber };
+const bullMqConnection = {
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+  username: process.env.REDIS_USERNAME,
+  password: process.env.REDIS_PASSWORD,
+};
+
+module.exports = { client, publisher, subscriber, bullMqConnection };

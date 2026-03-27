@@ -71,6 +71,7 @@ try {
   initializeRedisClient();
   initializePublisher();
   initializeSubscriber();
+  require("./redis/workers");
 
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

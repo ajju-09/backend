@@ -26,7 +26,7 @@ const {
   destroySubscription,
 } = require("../services/subscriptionService");
 const { generateOtp, expiresIn } = require("../helper/generateOtp");
-const sendEmail = require("../helper/sendMail");
+const { otpTemplate } = require("../helper/otpTemplet");
 const MESSAGES = require("../helper/messages");
 const { destroyMessageSetting } = require("../services/messageSettingServices");
 const { destroyChatSetting } = require("../services/chatSettingServices");
@@ -34,6 +34,11 @@ const { destroyTransaction } = require("../services/transactionServices");
 const { destroyAllNotification } = require("../services/notificationServices");
 const { destroyMessage } = require("../services/messageService");
 const { destroyChat } = require("../services/chatServices");
+const { emailQueue, notificationQueue } = require("../redis/queues");
+const {
+  welcomeTemplate,
+  loginInfoTemplate,
+} = require("../helper/emailTemplates");
 
 // register
 // POST /api/v1/users/register
@@ -217,6 +222,13 @@ const login = async (req, res, next) => {
       { isLogin: true, otp: null, otp_purpose: null, expiresAt: null },
       { where: { id: user.id } },
     );
+
+    // Send login alert email via queue
+    await emailQueue.add("login-info", {
+      to: user.email,
+      subject: "Welcome back to ChatMe 👋",
+      html: loginInfoTemplate(user.name, new Date().toLocaleString()),
+    });
 
     const userDetail = {
       id: user.id,
@@ -684,7 +696,11 @@ const sendOtp = async (req, res, next) => {
     // }
 
     // send email
-    await sendEmail({ email: email, otp: otp }, "otp");
+    await emailQueue.add("send-otp", {
+      to: email,
+      subject: `${otp} is your account verification code`,
+      html: otpTemplate(otp),
+    });
 
     return res
       .status(200)
@@ -763,6 +779,13 @@ const verifyOtp = async (req, res, next) => {
     await user.save();
 
     // await sendMessage(`+91${phone}`);
+
+    // Send welcome email via queue
+    await emailQueue.add("welcome-email", {
+      to: email,
+      subject: "Welcome to ChatMe! 🎉",
+      html: welcomeTemplate(user.name, "https://chatme.com"),
+    });
 
     // generate token
     const token = generateToken({
