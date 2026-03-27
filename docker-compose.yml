@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    # Alternatively, you can use the pre-built image:
+    # image: ajju09/chat-backend:latest
+    container_name: chat-backend
+    ports:
+      - "4000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - DB_LOCAL_HOST=mysql_db
+      - REDIS_HOST=redis_cache
+      - REDIS_PORT=6379
+    depends_on:
+      redis_cache:
+        condition: service_healthy
+      mysql_db:
+        condition: service_healthy
+    networks:
+      - chat_network
+
+  mysql_db:
+    image: mysql:8.0
+    container_name: chat-mysql
+    restart: always
+    environment:
+      # These must match your DB_LOCAL_PASS and DB_LOCAL_NAME in .env
+      MYSQL_ROOT_PASSWORD: ${DB_LOCAL_PASS:-Aj2003,,..}
+      MYSQL_DATABASE: ${DB_LOCAL_NAME:-chat_application}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chat_network
+
+  redis_cache:
+    image: redis:alpine
+    container_name: chat-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chat_network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  chat_network:
+    driver: bridge

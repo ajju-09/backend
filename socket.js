@@ -4,7 +4,6 @@ const jwt = require("jsonwebtoken");
 const { findOneMessage, updateMessage } = require("./services/messageService");
 const { updateChatSetting } = require("./services/chatSettingServices");
 const { subscriber } = require("./config/redis");
-const { addUserSocket, removeUserSocket } = require("./helper/socketUsers");
 const { clearCacheData } = require("./redis/redis.client");
 const { Op } = require("sequelize");
 
@@ -51,7 +50,7 @@ const initialize = async (server) => {
       if (userInfo?.id) {
         socket.join(userId.toString());
 
-        const socketCount = await addUserSocket(userId, socket.id);
+        const socketCount = io.sockets.adapter.rooms.get(userId.toString())?.size || 0;
 
         if (socketCount === 1) {
           await updateUser(
@@ -136,7 +135,8 @@ const initialize = async (server) => {
           const userInfo = await findUserByKey(userId);
 
           if (userInfo) {
-            const socketCount = await removeUserSocket(userId, socket.id);
+            // Socket has already left the room by the time "disconnect" is fired.
+            const socketCount = io.sockets.adapter.rooms.get(userId.toString())?.size || 0;
 
             if (socketCount === 0) {
               await updateUser(

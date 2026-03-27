@@ -17,24 +17,17 @@ const {
   findUserByKey,
   updateUser,
   findOneUser,
-  destroyUser,
 } = require("../services/userServices");
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
 const { getIo } = require("../socket");
 const {
   createSubscription,
-  destroySubscription,
+  updateSubscription,
 } = require("../services/subscriptionService");
 const { generateOtp, expiresIn } = require("../helper/generateOtp");
 const { otpTemplate } = require("../helper/otpTemplet");
 const MESSAGES = require("../helper/messages");
-const { destroyMessageSetting } = require("../services/messageSettingServices");
-const { destroyChatSetting } = require("../services/chatSettingServices");
-const { destroyTransaction } = require("../services/transactionServices");
-const { destroyAllNotification } = require("../services/notificationServices");
-const { destroyMessage } = require("../services/messageService");
-const { destroyChat } = require("../services/chatServices");
-const { emailQueue, notificationQueue } = require("../redis/queues");
+const { emailQueue, userCleanupQueue } = require("../redis/queues");
 const {
   welcomeTemplate,
   loginInfoTemplate,
@@ -66,11 +59,11 @@ const register = async (req, res, next) => {
     // check for this email already exists or not
     if (existedEmail || existedPhone) {
       const targetUser = existedEmail || existedPhone;
-      
+
       if (targetUser.isDeleted) {
         // User was soft-deleted, reviving account with new info
         const hashPassword = await bcrypt.hash(password, 10);
-        
+
         await updateUser(
           {
             name: name,
@@ -83,9 +76,9 @@ const register = async (req, res, next) => {
             photo: null,
             otp: null,
             otp_purpose: null,
-            expiresAt: null
+            expiresAt: null,
           },
-          { where: { id: targetUser.id } }
+          { where: { id: targetUser.id } },
         );
 
         const userDetail = {
@@ -499,21 +492,30 @@ const deleteUser = async (req, res, next) => {
 
     // Soft delete the user flag
     await updateUser(
-      { isDeleted: true, deletedAt: new Date(), isLogin: false, is_online: false, isVerified: false, fcm_token: null },
+      {
+        isDeleted: true,
+        deletedAt: new Date(),
+        isLogin: false,
+        is_online: false,
+        isVerified: false,
+        fcm_token: null,
+      },
       { where: { id: id } },
     );
 
     // Cancel active subscription immediately at soft delete
-    const { updateSubscription } = require("../services/subscriptionService");
     await updateSubscription(
       { status: "Cancel", auto_renew: false },
-      { where: { user_id: id } }
+      { where: { user_id: id } },
     );
 
     // Enqueue 30-day delayed hard delete purge job
-    const { userCleanupQueue } = require("../redis/queues");
     const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-    await userCleanupQueue.add("hard-delete-user", { userId: id }, { delay: thirtyDaysInMs });
+    await userCleanupQueue.add(
+      "hard-delete-user",
+      { userId: id },
+      { delay: thirtyDaysInMs },
+    );
 
     return res.status(200).json({
       message: MESSAGES.AUTH.DELETE_USER_SUCCESS,
