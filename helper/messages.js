@@ -102,6 +102,7 @@ const MESSAGES = {
     CHAT_AND_MESSAGE_ID_REQUIRED: "Chat and message id required",
     SOMETHING_WENT_WRONG: "Somthing went wrong",
     USER_EXISTED: "User already exists",
+    MESSAGE_ID_REQUIRED: "Message id required",
   },
 };
 

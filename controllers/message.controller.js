@@ -41,6 +41,7 @@ const { Plans, findOnePlan } = require("../services/planServices");
 const { publisher } = require("../config/redis");
 const sendFCMNotification = require("../helper/sendFCM");
 const MESSAGES = require("../helper/messages");
+const { Reaction } = require("../services/reactionServices");
 
 // send message
 // POST /api/v1/message/send
@@ -331,6 +332,18 @@ const getMessage = async (req, res, next) => {
           as: "setting",
           where: { user_id: userId },
           attributes: ["is_star"],
+        },
+        {
+          model: Reaction,
+          as: "reactions",
+          attributes: ["id", "user_id", "emoji"],
+          include: [
+            {
+              model: Users,
+              as: "reactor",
+              attributes: ["id", "name", "photo"],
+            },
+          ],
         },
       ],
 

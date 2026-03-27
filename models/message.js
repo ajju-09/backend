@@ -75,6 +75,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "msg_id",
       as: "setting",
     });
+
+    Message.hasMany(models.Reaction, {
+      foreignKey: "msg_id",
+      as: "reactions",
+    });
   };
 
   return Message;

@@ -131,6 +131,10 @@ module.exports = (sequelize, DataTypes) => {
     User.hasMany(models.Transaction, {
       foreignKey: "user_id",
     });
+
+    User.hasMany(models.Reaction, {
+      foreignKey: "user_id",
+    });
   };
 
   return User;
