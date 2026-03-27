@@ -17,13 +17,23 @@ const {
   findUserByKey,
   updateUser,
   findOneUser,
+  destroyUser,
 } = require("../services/userServices");
 const uploadToCloudinary = require("../helper/uploadToCloudinary");
 const { getIo } = require("../socket");
-const { createSubscription } = require("../services/subscriptionService");
+const {
+  createSubscription,
+  destroySubscription,
+} = require("../services/subscriptionService");
 const { generateOtp, expiresIn } = require("../helper/generateOtp");
 const sendEmail = require("../helper/sendMail");
 const MESSAGES = require("../helper/messages");
+const { destroyMessageSetting } = require("../services/messageSettingServices");
+const { destroyChatSetting } = require("../services/chatSettingServices");
+const { destroyTransaction } = require("../services/transactionServices");
+const { destroyAllNotification } = require("../services/notificationServices");
+const { destroyMessage } = require("../services/messageService");
+const { destroyChat } = require("../services/chatServices");
 
 // register
 // POST /api/v1/users/register
@@ -50,39 +60,43 @@ const register = async (req, res, next) => {
 
     // check for this email already exists or not
     if (existedEmail && existedPhone) {
-      await updateUser(
-        {
-          name: name,
-          password: await bcrypt.hash(password, 10),
-          phone: phone,
-          isDeleted: false,
-        },
-        { where: { email: email } },
-      );
+      // await updateUser(
+      //   {
+      //     name: name,
+      //     password: await bcrypt.hash(password, 10),
+      //     phone: phone,
+      //     isDeleted: false,
+      //   },
+      //   { where: { email: email } },
+      // );
 
-      if (existedEmail.isVerified === true) {
-        existedEmail.isLogin = true;
-        await existedEmail.save();
-      }
+      // if (existedEmail.isVerified === true) {
+      //   existedEmail.isLogin = true;
+      //   await existedEmail.save();
+      // }
 
-      const data = {
-        id: existedEmail.id,
-        name: existedEmail.name,
-        email: existedEmail.email,
-        phone: existedEmail.phone,
-        is_online: existedEmail.is_online,
-        last_seen: existedEmail.last_seen,
-        isDeleted: existedEmail.isDeleted,
-        isLogin: existedEmail.isLogin,
-        createdAt: existedEmail.createdAt,
-        updatedAt: existedEmail.updatedAt,
-      };
+      // const data = {
+      //   id: existedEmail.id,
+      //   name: existedEmail.name,
+      //   email: existedEmail.email,
+      //   phone: existedEmail.phone,
+      //   is_online: existedEmail.is_online,
+      //   last_seen: existedEmail.last_seen,
+      //   isDeleted: existedEmail.isDeleted,
+      //   isLogin: existedEmail.isLogin,
+      //   createdAt: existedEmail.createdAt,
+      //   updatedAt: existedEmail.updatedAt,
+      // };
 
-      return res.status(200).json({
-        message: "Welcome back",
-        success: true,
-        data: data,
-      });
+      // return res.status(200).json({
+      //   message: "Welcome back",
+      //   success: true,
+      //   data: data,
+      // });
+
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.USER_EXISTED, success: false });
     }
 
     // hash password
@@ -447,12 +461,31 @@ const deleteUser = async (req, res, next) => {
     }
 
     // update is isDeleted col
-    await updateUser(
-      { isDeleted: true, isLogin: false, is_online: 0, isVerified: false },
-      { where: { id: id } },
-    );
+    // await updateUser(
+    //   { isDeleted: true, isLogin: false, is_online: 0, isVerified: false },
+    //   { where: { id: id } },
+    // );
 
-    res.status(200).json({
+    // Destroy all related data automatically
+    await destroyMessageSetting({ where: { user_id: id } });
+    await destroyChatSetting({ where: { user_id: id } });
+    await destroyTransaction({ where: { user_id: id } });
+    await destroyAllNotification({
+      where: { [Op.or]: [{ sender_id: id }, { receiver_id: id }] },
+    });
+
+    await destroyMessage({
+      where: { [Op.or]: [{ sender_id: id }, { receiver_id: id }] },
+    });
+
+    await destroyChat({
+      where: { [Op.or]: [{ user_one: id }, { user_two: id }] },
+    });
+
+    await destroySubscription({ where: { user_id: id } });
+    await destroyUser({ where: { id: id } });
+
+    return res.status(200).json({
       message: MESSAGES.AUTH.DELETE_USER_SUCCESS,
       success: true,
     });

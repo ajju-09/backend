@@ -27,6 +27,11 @@ const destroyNotification = async (query) => {
   return data;
 };
 
+const destroyAllNotification = async (query) => {
+  const data = await Notification.destroy(query);
+  return data;
+};
+
 module.exports = {
   findAllNotification,
   updateNotification,
@@ -34,4 +39,5 @@ module.exports = {
   Notification,
   findNotificationByKey,
   destroyNotification,
+  destroyAllNotification,
 };

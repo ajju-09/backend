@@ -15,9 +15,15 @@ const findOneSubscription = async (query) => {
   return data;
 };
 
+const destroySubscription = async (query) => {
+  const data = await Subscriptions.destroy(query);
+  return data;
+};
+
 module.exports = {
   Subscriptions,
   createSubscription,
   updateSubscription,
   findOneSubscription,
+  destroySubscription,
 };

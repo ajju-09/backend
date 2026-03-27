@@ -53,12 +53,11 @@ const sendMessage = async (req, res, next) => {
 
     logger.info(`${req.method} ${req.url}`);
 
-    // check chat exists
-    const chat = await findChatByKey(chatId);
-    const user = await findUserByKey(senderId);
-    const chatSetting = await findOneChatSetting({
-      where: { user_id: { [Op.ne]: senderId }, chat_id: chatId },
-    });
+    // check chat and sender existence
+    const [chat, user] = await Promise.all([
+      findChatByKey(chatId),
+      findUserByKey(senderId),
+    ]);
 
     if (!chat) {
       return res
@@ -73,59 +72,60 @@ const sendMessage = async (req, res, next) => {
         .json({ message: MESSAGES.ERROR.USER_UNAUTHORIZED, success: false });
     }
 
-    // check for receiverId
-    const receiverId =
-      chat.user_one === senderId ? chat.user_two : chat.user_one;
-
-    const receiver = await findUserByKey(receiverId);
-
-    const subscription = await findOneSubscription({
-      where: {
-        user_id: senderId,
-        status: "Active",
-        end_date: { [Op.gt]: new Date() },
-      },
-      include: [
-        { model: Plans, attributes: ["id", "type", "daily_message_limit"] },
-      ],
+    // check if blocked
+    const chatSetting = await findOneChatSetting({
+      where: { user_id: { [Op.ne]: senderId }, chat_id: chatId },
     });
 
-    let dailyMessage = 10;
-
-    const freePlan = await findOnePlan({ where: { type: "Free" } });
-
-    if (
-      !subscription ||
-      subscription.status !== "Active" ||
-      !subscription.end_date ||
-      new Date(subscription.end_date) <= new Date()
-    ) {
-      dailyMessage = freePlan?.daily_message_limit ?? 10;
-    } else if (subscription.Plan) {
-      dailyMessage = subscription.Plan.daily_message_limit;
+    if (chatSetting?.is_block) {
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.USER_BLOCKED, success: false });
     }
 
-    const tempKey = `user:${senderId}:chat:${chatId}:${new Date().toISOString().split("T")[0]}`;
+    const receiverId =
+      chat.user_one === senderId ? chat.user_two : chat.user_one;
+    const [receiver, subscription] = await Promise.all([
+      findUserByKey(receiverId),
+      findOneSubscription({
+        where: {
+          user_id: senderId,
+          status: "Active",
+          end_date: { [Op.gt]: new Date() },
+        },
+        include: [
+          { model: Plans, attributes: ["id", "type", "daily_message_limit"] },
+        ],
+      }),
+    ]);
 
+    // Daily message limit logic
+    let dailyLimit = 10;
+    if (subscription?.Plan) {
+      dailyLimit = subscription.Plan.daily_message_limit;
+    } else {
+      const freePlan = await findOnePlan({ where: { type: "Free" } });
+      dailyLimit = freePlan?.daily_message_limit ?? 10;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const tempKey = `user:${senderId}:chat:${chatId}:${today}`;
     const currCount = await increment(tempKey);
 
-    if (currCount === 1) {
-      await expireKey(tempKey, 86400);
-    }
+    if (currCount === 1) await expireKey(tempKey, 86400);
 
-    if (dailyMessage !== null && currCount > dailyMessage) {
+    if (dailyLimit !== null && currCount > dailyLimit) {
       return res
         .status(403)
         .json({ message: MESSAGES.ERROR.DAILY_MESSAGE_LIMIT, success: false });
     }
 
+    // Handle attachments
     let images = [];
-
     if (req.files && req.files.length > 0) {
       const uploads = await Promise.all(
         req.files.map(async (file) => await uploadToCloudinary(file)),
       );
-
       images = uploads.map((img) => img.secure_url);
 
       await createNotification({
@@ -138,11 +138,11 @@ const sendMessage = async (req, res, next) => {
       });
     }
 
+    // Validate reply
     if (replyTo) {
       const parentMsg = await findOneMessage({
         where: { id: replyTo, chat_id: chatId },
       });
-
       if (!parentMsg) {
         return res.status(400).json({
           message: MESSAGES.ERROR.INVALID_REPLY_MESSAGE,
@@ -153,13 +153,7 @@ const sendMessage = async (req, res, next) => {
 
     const encryptedText = encryptMessage(text);
 
-    // create new message
-    if (chatSetting.is_block === true) {
-      return res
-        .status(400)
-        .json({ message: MESSAGES.ERROR.USER_BLOCKED, success: false });
-    }
-
+    // Create message
     const msg = await createMessage({
       sender_id: senderId,
       receiver_id: receiverId,
@@ -169,26 +163,14 @@ const sendMessage = async (req, res, next) => {
       reply_to: Number(replyTo) || null,
     });
 
-    if (msg) {
-      await increment(`unread:${receiverId}:${chatId}`);
+    if (!msg) throw new Error("Failed to create message");
 
-      const unreadCount = await getCacheData(`unread:${receiverId}:${chatId}`);
+    // Side effects & Updates
+    const unreadCount = await increment(`unread:${receiverId}:${chatId}`);
 
-      io.to(receiverId.toString()).emit("unread_count", {
-        chatId: chatId,
-        unread_count: Number(unreadCount),
-      });
-
-      await updateChat(
-        { last_message: encryptedText, last_message_time: new Date() },
-        { where: { id: chatId } },
-      );
-
-      const chatData = await findOneChat({
-        where: {
-          [Op.or]: [{ user_one: senderId }, { user_two: senderId }],
-          id: chatId,
-        },
+    const [chatData] = await Promise.all([
+      findOneChat({
+        where: { id: chatId },
         include: [
           {
             model: Users,
@@ -201,32 +183,38 @@ const sendMessage = async (req, res, next) => {
             attributes: ["id", "name", "photo", "is_online"],
           },
         ],
-      });
+      }),
+      updateChat(
+        {
+          last_message: encryptedText,
+          last_message_time: new Date(),
+          updatedAt: new Date(),
+        },
+        { where: { id: chatId } },
+      ),
+      incrementChatSetting(
+        { unread_count: 1 },
+        { where: { chat_id: chatId, user_id: receiverId } },
+      ),
+      bulkCreateMessageSetting([
+        { msg_id: msg.id, chat_id: chatId, user_id: msg.sender_id },
+        { msg_id: msg.id, chat_id: chatId, user_id: msg.receiver_id },
+      ]),
+    ]);
 
+    // Socket & Notification emits
+    io.to(receiverId.toString()).emit("unread_count", {
+      chatId,
+      unread_count: Number(unreadCount),
+    });
+
+    if (chatData) {
       chatData.last_message = decryptMessage(chatData.last_message);
-
       io.to(receiverId.toString()).emit("chat_update", {
         chat: chatData,
         unread_count: Number(unreadCount),
       });
     }
-
-    await updateChat(
-      { last_message: msg.text, last_message_time: new Date() },
-      { where: { id: chatId } },
-    );
-
-    if (msg) {
-      await incrementChatSetting(
-        { unread_count: 1 },
-        { where: { chat_id: chatId, user_id: receiverId } },
-      );
-    }
-
-    await bulkCreateMessageSetting([
-      { msg_id: msg.id, chat_id: chatId, user_id: msg.sender_id },
-      { msg_id: msg.id, chat_id: chatId, user_id: msg.receiver_id },
-    ]);
 
     const responseMsg = {
       ...msg.toJSON(),
@@ -235,14 +223,12 @@ const sendMessage = async (req, res, next) => {
     };
 
     await publisher.publish("MESSAGES", JSON.stringify(responseMsg));
-    console.log("<============== Message publish on redis ============== >");
-
     io.to(receiverId.toString()).emit("new_noti", {
       message: `${user.name} sent you a message`,
-      chatId: chatId,
+      chatId,
     });
 
-    if (receiver && receiver.fcm_token) {
+    if (receiver?.fcm_token) {
       await sendFCMNotification(
         receiver.fcm_token,
         `New message from ${user.name}`,
@@ -251,7 +237,7 @@ const sendMessage = async (req, res, next) => {
       );
     }
 
-    if (text !== null && text !== "") {
+    if (text) {
       await createNotification({
         sender_id: senderId,
         receiver_id: receiverId,
@@ -261,8 +247,6 @@ const sendMessage = async (req, res, next) => {
         seen: false,
       });
     }
-
-    await updateChat({ updatedAt: new Date() }, { where: { id: chatId } });
 
     return res.status(200).json({
       message: MESSAGES.MESSAGE.SEND_MESSAGE_SUCCESS,

@@ -22,10 +22,16 @@ const findMessageSettingByPk = async (key) => {
   return data;
 };
 
+const destroyMessageSetting = async (query) => {
+  const data = await MessageSetting.destroy(query);
+  return data;
+};
+
 module.exports = {
   findOneMessageSetting,
   updateMessageSetting,
   MessageSetting,
   bulkCreateMessageSetting,
   findMessageSettingByPk,
+  destroyMessageSetting,
 };

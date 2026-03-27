@@ -27,6 +27,11 @@ const chatCount = async (query) => {
   return count;
 };
 
+const destroyChatSetting = async (query) => {
+  const data = await ChatSetting.destroy(query);
+  return data;
+};
+
 module.exports = {
   ChatSetting,
   findOneChatSetting,
@@ -34,4 +39,5 @@ module.exports = {
   BulkCreateChatSetting,
   incrementChatSetting,
   chatCount,
+  destroyChatSetting,
 };

@@ -26,6 +26,11 @@ const updateChat = async (value, query) => {
   return data;
 };
 
+const destroyChat = async (query) => {
+  const data = await Chats.destroy(query);
+  return data;
+};
+
 module.exports = {
   findOneChat,
   updateChat,
@@ -33,4 +38,5 @@ module.exports = {
   findAllChat,
   Chats,
   findChatByKey,
+  destroyChat,
 };

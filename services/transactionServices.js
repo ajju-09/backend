@@ -26,6 +26,12 @@ const findOneTransaction = async (query) => {
   const data = await Transactions.findOne(query);
   return data;
 };
+
+const destroyTransaction = async (query) => {
+  const data = await Transactions.destroy(query);
+  return data;
+};
+
 module.exports = {
   Transactions,
   createTransaction,
@@ -33,4 +39,5 @@ module.exports = {
   updateTransaction,
   findAllTransactions,
   findOneTransaction,
+  destroyTransaction,
 };

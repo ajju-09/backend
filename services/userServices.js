@@ -37,6 +37,11 @@ const findOneUser = async (query) => {
   return data;
 };
 
+const destroyUser = async (query) => {
+  const data = await Users.destroy(query);
+  return data;
+};
+
 module.exports = {
   findSingleUser,
   createUser,
@@ -45,4 +50,5 @@ module.exports = {
   updateUser,
   Users,
   findOneUser,
+  destroyUser,
 };

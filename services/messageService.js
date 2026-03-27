@@ -38,6 +38,11 @@ const countMessages = async (query) => {
   return data;
 };
 
+const destroyMessage = async (query) => {
+  const data = await Message.destroy(query);
+  return data;
+};
+
 module.exports = {
   Message,
   findOneMessage,
@@ -47,4 +52,5 @@ module.exports = {
   findMessageByKey,
   findAndCountAllMessages,
   countMessages,
+  destroyMessage,
 };

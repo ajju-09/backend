@@ -86,7 +86,7 @@ const MESSAGES = {
     USER_NOT_FOUND: "User not found",
     NO_USER_FOUND: "NO user found",
     TEXT_REQUIRED: "Text required",
-    OTP_REQUIRED: "Otp Required",
+    OTP_REQUIRED: "Otp required",
     INVALID_OTP: "Invalid OTP",
     FCM_TOKEN_REQUIRED: "Fcm token required",
     CANNOT_CHAT_WITH_YOURSELF: "Cannot chat with yourself",
@@ -101,6 +101,7 @@ const MESSAGES = {
     YOUR_ARE_NOT_SUB: "Your not subscribed",
     CHAT_AND_MESSAGE_ID_REQUIRED: "Chat and message id required",
     SOMETHING_WENT_WRONG: "Somthing went wrong",
+    USER_EXISTED: "User already exists",
   },
 };
 
