@@ -39,6 +39,7 @@ const sendFCMNotification = require("../helper/sendFCM");
 const MESSAGES = require("../helper/messages");
 const { Reaction } = require("../services/reactionServices");
 const { notificationQueue } = require("../redis/queues");
+const { generateReplySuggestions } = require("../utils/gemini");
 
 // send message
 // POST /api/v1/message/send
@@ -244,6 +245,21 @@ const sendMessage = async (req, res, next) => {
         message: `You have a new message from ${user.name}`,
         seen: false,
       });
+
+      // Generate and emit reply suggestions asynchronously in real-time
+      generateReplySuggestions(text)
+        .then((suggestions) => {
+          if (suggestions && suggestions.length > 0) {
+            io.to(receiverId.toString()).emit("reply_suggestions", {
+              chatId,
+              messageId: msg.id,
+              suggestions,
+            });
+          }
+        })
+        .catch((error) => {
+          logger.error(`Gemini suggestion error: ${error.message}`);
+        });
     }
 
     return res.status(200).json({
