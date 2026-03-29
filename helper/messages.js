@@ -61,6 +61,10 @@ const MESSAGES = {
     GET_STRIPE_ID_SUCCESS: "Stripe id fetched successfully",
     DELETE_STRIPE_ID_SUCCESS: "Stripe id deleted successfully",
   },
+  AI: {
+    GENERATE_SHORT_EXPLANATION_SUCCESS:
+      "Short explanation generated successfully",
+  },
   ERROR: {
     VERIFY_EMAIL: "Please verify your email",
     USER_NOT_REGISTER: "User not registered",
@@ -105,6 +109,9 @@ const MESSAGES = {
     MESSAGE_ID_REQUIRED: "Message id required",
     TOO_MANY_REQUEST: "Too Many Requests. Try again later",
     TOO_MANY_ATTEMPT: "Too many attempts. Try again after 15 minutes.",
+    FILE_SHARING_FOR_PREMIUM:
+      "File sharing is available only for premium user only.",
+    ACTIVE_SUBSCRIPTION: "You don't have active subscription",
   },
 };
 

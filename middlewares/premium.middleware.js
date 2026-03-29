@@ -2,6 +2,7 @@ const { Op } = require("sequelize");
 const { findOneSubscription } = require("../services/subscriptionService");
 const { Plans } = require("../services/planServices");
 const { setCacheData, getCacheData } = require("../redis/redis.client");
+const MESSAGES = require("../helper/messages");
 
 const premiumFeature = async (req, res, next) => {
   const userId = req.id;
@@ -31,7 +32,7 @@ const premiumFeature = async (req, res, next) => {
     subscription === null
   ) {
     return res.status(401).json({
-      message: "File sharing is available only for premium user only.",
+      message: MESSAGES.ERROR.FILE_SHARING_FOR_PREMIUM,
     });
   }
 

@@ -11,6 +11,7 @@ const planRouter = require("./routes/v3/plan.route");
 const subscriptionRouter = require("./routes/v3/subscription.route");
 const transactionRouter = require("./routes/v3/transaction.route");
 const reactionRouter = require("./routes/reaction.route");
+const aiRouter = require("./routes/v3/ai.route");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
@@ -64,6 +65,7 @@ app.use("/api/v3/subscription", subscriptionRouter);
 app.use("/api/v3/transactions", transactionRouter);
 
 app.use("/api/v3/reaction", reactionRouter);
+app.use("/api/v3/ai", aiRouter);
 
 app.use(errorHandler);
 
