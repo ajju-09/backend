@@ -103,6 +103,8 @@ const MESSAGES = {
     SOMETHING_WENT_WRONG: "Somthing went wrong",
     USER_EXISTED: "User already exists",
     MESSAGE_ID_REQUIRED: "Message id required",
+    TOO_MANY_REQUEST: "Too Many Requests. Try again later",
+    TOO_MANY_ATTEMPT: "Too many attempts. Try again after 15 minutes.",
   },
 };
 

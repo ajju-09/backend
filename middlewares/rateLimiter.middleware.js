@@ -1,6 +1,7 @@
 const ip = require("ip");
 const { rateLimitLogger } = require("../helper/logger");
 const { increment, expireKey } = require("../redis/redis.client");
+const MESSAGES = require("../helper/messages");
 require("dotenv").config();
 
 const rateLimit = async (req, res, next) => {
@@ -18,7 +19,7 @@ const rateLimit = async (req, res, next) => {
         message: `IP:${ip.address()} - Requests:${requests}`,
       });
       return res.status(429).json({
-        message: "Too Many Requests. Try again later",
+        message: MESSAGES.ERROR.TOO_MANY_REQUEST,
         success: false,
       });
     }

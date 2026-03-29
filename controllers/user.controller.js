@@ -32,6 +32,13 @@ const {
   welcomeTemplate,
   loginInfoTemplate,
 } = require("../helper/emailTemplates");
+const {
+  increment,
+  setCacheData,
+  getCacheData,
+  expireKey,
+  deleteKey,
+} = require("../redis/redis.client");
 
 // register
 // POST /api/v1/users/register
@@ -214,10 +221,33 @@ const login = async (req, res, next) => {
         .json({ message: MESSAGES.ERROR.USER_NOT_REGISTER, success: false });
     }
 
+    const isBlocked = await getCacheData(`block-user:${user.id}`);
+
+    if (isBlocked) {
+      return res
+        .status(429)
+        .json({ message: MESSAGES.ERROR.TOO_MANY_ATTEMPT, success: false });
+    }
+
     // compare password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
+      const attempts = await increment(`user-attempt:${user.id}`);
+      console.log("Increment count", attempts);
+
+      if (attempts === 1) {
+        await expireKey(`user-attempt:${user.id}`, 900);
+      }
+
+      if (attempts > 5) {
+        await setCacheData(`block-user:${user.id}`, true, 900);
+
+        return res
+          .status(429)
+          .json({ message: MESSAGES.ERROR.TOO_MANY_REQUEST, success: false });
+      }
+
       return res.status(400).json({
         message: MESSAGES.ERROR.INVALID_EMAIL_OR_PASSWORD,
         success: false,
@@ -260,6 +290,9 @@ const login = async (req, res, next) => {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+
+    await deleteKey(`user-attempt:${user.id}`);
+    await deleteKey(`block-user:${user.id}`);
 
     return res.status(200).json({
       message: MESSAGES.AUTH.LOGIN_SUCCESS,

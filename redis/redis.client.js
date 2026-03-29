@@ -47,6 +47,10 @@ const expireKey = async (key, time) => {
   return await client.expire(key, time);
 };
 
+const deleteKey = async (key) => {
+  return await client.del(key);
+};
+
 module.exports = {
   initializeRedisClient,
   setCacheData,
@@ -54,4 +58,5 @@ module.exports = {
   clearCacheData,
   increment,
   expireKey,
+  deleteKey,
 };
