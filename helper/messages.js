@@ -35,6 +35,7 @@ const MESSAGES = {
     GEL_ALL_STAR_MSG: "Get all star message successfully",
     NO_STAR_MESSAGE: "There is no star messages for you",
     MESSAGE_UPDATE_SUCCESS: "Message updated successfully",
+    GET_PIN_MESSAGES_SUCCESS: "Pin message fetched successfully",
   },
   NOTIFICATION: {
     GET_NOTIFICATIONS_SUCCESS: "Get notifications successfully",

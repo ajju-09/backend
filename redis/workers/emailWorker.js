@@ -6,7 +6,6 @@ const emailWorker = new Worker(
   "emails",
   async (job) => {
     const { to, subject, html } = job.data;
-    console.log(`[EmailWorker] Sending email to ${to}`);
 
     await sendEmail({
       to,
@@ -21,15 +20,15 @@ const emailWorker = new Worker(
 );
 
 emailWorker.on("error", (error) => {
-  console.log("Email worker error:", error);
+  console.log("Email worker error:", error.message);
 });
 
 emailWorker.on("failed", (job, error) => {
-  console.log("Email worker failed:", job.id, error);
+  console.log("Email worker failed:", error.message);
 });
 
 emailWorker.on("completed", (job) => {
-  console.log("Email worker completed:", job.id);
+  console.log("Email worker completed:");
 });
 
 module.exports = { emailWorker };

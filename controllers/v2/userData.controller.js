@@ -112,40 +112,48 @@ const getAllLinks = async (req, res, next) => {
     const pageNumber = parseInt(page);
     const pageSize = parseInt(limit);
 
-    const PageOffset = (pageNumber - 1) * pageSize;
-
+    // Fetch ALL non-deleted text messages — no DB limit/offset here
+    // because we must decrypt + filter in JS before we can paginate
     const msg = await findAllMessage({
       where: {
         [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
-        text: {
-          [Op.ne]: null,
-        },
+        text: { [Op.ne]: null },
         delete_for_all: false,
       },
       order: [["createdAt", "DESC"]],
-      limit: pageSize,
-      offset: PageOffset,
     });
 
+    // Decrypt every message, then keep only the ones containing a URL
     const filtered = msg
       .map((item) => {
-        const decryptedText = decryptMessage(item.text);
+        let decryptedText;
+        try {
+          decryptedText = decryptMessage(item.text);
+        } catch {
+          return null;
+        }
         return { ...item.toJSON(), text: decryptedText };
       })
       .filter(
-        (msg) =>
-          msg.text.startsWith("https://") || msg.text.startsWith("http://"),
+        (item) =>
+          item &&
+          item.text &&
+          (item.text.includes("https://") || item.text.includes("http://")),
       );
 
-    if (!filtered) {
-      return res
-        .status(400)
-        .json({ message: "There is not Links for you", success: false });
-    }
+    // Paginate the filtered results in JS
+    const total = filtered.length;
+    const PageOffset = (pageNumber - 1) * pageSize;
+    const paginated = filtered.slice(PageOffset, PageOffset + pageSize);
 
-    return res
-      .status(200)
-      .json({ message: "get all links", success: true, data: filtered });
+    return res.status(200).json({
+      message: "get all links",
+      success: true,
+      data: paginated,
+      totalLinks: total,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(total / pageSize),
+    });
   } catch (error) {
     next(error);
   }
@@ -287,8 +295,6 @@ const getAllLinksInChat = async (req, res, next) => {
     const pageNumber = parseInt(page);
     const pageSize = parseInt(limit);
 
-    const PageOffset = (pageNumber - 1) * pageSize;
-
     if (!chatId) {
       return res
         .status(400)
@@ -303,40 +309,46 @@ const getAllLinksInChat = async (req, res, next) => {
         .json({ message: "chat not found", success: false });
     }
 
+    // Fetch ALL non-deleted text messages for this chat — no DB limit/offset
     const msg = await findAllMessage({
       where: {
         chat_id: chatId,
         delete_for_all: false,
-        text: {
-          [Op.ne]: null,
-        },
-        delete_for_all: false,
+        text: { [Op.ne]: null },
       },
       order: [["createdAt", "DESC"]],
-      limit: pageSize,
-      offset: PageOffset,
     });
 
+    // Decrypt every message, then keep only the ones containing a URL
     const filtered = msg
       .map((item) => {
-        const decryptedText = decryptMessage(item.text);
+        let decryptedText;
+        try {
+          decryptedText = decryptMessage(item.text);
+        } catch {
+          return null;
+        }
         return { ...item.toJSON(), text: decryptedText };
       })
       .filter(
-        (msg) =>
-          msg.text.startsWith("https://") || msg.text.startsWith("http://"),
+        (item) =>
+          item &&
+          item.text &&
+          (item.text.includes("https://") || item.text.includes("http://")),
       );
 
-    if (!filtered) {
-      return res
-        .status(400)
-        .json({ message: "There is no link for you", success: false });
-    }
+    // Paginate the filtered results in JS
+    const total = filtered.length;
+    const PageOffset = (pageNumber - 1) * pageSize;
+    const paginated = filtered.slice(PageOffset, PageOffset + pageSize);
 
     return res.status(200).json({
       message: "Fetch links successfully",
       success: true,
-      data: filtered,
+      data: paginated,
+      totalLinks: total,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
     next(error);

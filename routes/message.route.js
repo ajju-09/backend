@@ -9,6 +9,7 @@ const {
   getAllStarMessages,
   getAllStarMessageWithInChat,
   editMessage,
+  getPinMessages,
 } = require("../controllers/message.controller");
 const multiUpload = require("../middlewares/multiUpload.middleware");
 const premiumFeature = require("../middlewares/premium.middleware");
@@ -38,5 +39,7 @@ router.patch("/pin/:msgId", auth, pinMessage);
 router.patch("/delete/all/:msgId", auth, deleteForAll);
 
 router.patch("/chat/:chatId/edit-message/:msgId", auth, editMessage);
+
+router.get("/get-pin-messages/:chatId", auth, getPinMessages);
 
 module.exports = router;

@@ -30,14 +30,14 @@ const getAllNotification = async (req, res, next) => {
         {
           model: Users,
           as: "otheruser",
-          attributes: ["id", "photo"],
+          attributes: ["id", "photo", "name"],
         },
         {
           model: Chats,
           attributes: ["id"],
         },
       ],
-      attributes: ["id", "title", "message", "seen"],
+      attributes: ["id", "title", "message", "seen", "msg_id"],
       order: [["createdAt", "DESC"]],
       limit: pageSize,
       offset: PageOffset,

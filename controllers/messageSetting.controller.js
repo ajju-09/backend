@@ -4,6 +4,8 @@ const {
   findOneMessageSetting,
   updateMessageSetting,
 } = require("../services/messageSettingServices");
+const MESSAGES = require("../helper/messages");
+const { findOneChatSetting } = require("../services/chatSettingServices");
 
 // star message
 // /api/v2/messagesetting/star/:msgId
@@ -19,6 +21,24 @@ const starMessage = async (req, res, next) => {
       return res
         .status(404)
         .json({ message: "Msg id required", success: false });
+    }
+
+    const msg = await findMessageByKey(msgId);
+    if (!msg) {
+      return res
+        .status(404)
+        .json({ message: MESSAGES.ERROR.MESSAGE_NOT_FOUND, success: false });
+    }
+
+    // check if chat is blocked by either user
+    const chatSetting = await findOneChatSetting({
+      where: { chat_id: msg.chat_id, is_block: true },
+    });
+
+    if (chatSetting?.is_block) {
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.USER_BLOCKED, success: false });
     }
 
     const messagesetting = await findOneMessageSetting({

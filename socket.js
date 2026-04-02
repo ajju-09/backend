@@ -1,11 +1,16 @@
 const { Server } = require("socket.io");
-const { updateUser, findUserByKey } = require("./services/userServices");
+const {
+  updateUser,
+  findUserByKey,
+  findOneUser,
+} = require("./services/userServices");
 const jwt = require("jsonwebtoken");
 const { findOneMessage, updateMessage } = require("./services/messageService");
 const { updateChatSetting } = require("./services/chatSettingServices");
 const { subscriber } = require("./config/redis");
 const { clearCacheData } = require("./redis/redis.client");
 const { Op } = require("sequelize");
+const db = require("./models");
 
 let io;
 // const userSocketMap = new Map();
@@ -50,7 +55,8 @@ const initialize = async (server) => {
       if (userInfo?.id) {
         socket.join(userId.toString());
 
-        const socketCount = io.sockets.adapter.rooms.get(userId.toString())?.size || 0;
+        const socketCount =
+          io.sockets.adapter.rooms.get(userId.toString())?.size || 0;
 
         if (socketCount === 1) {
           await updateUser(
@@ -115,10 +121,20 @@ const initialize = async (server) => {
             },
           );
 
+          // const receiverInfo = await findOneUser({
+          //   where: {
+          //     id: lastMsg.receiver_id,
+          //     attributes: ["id", "name", "photo"],
+          //   },
+          // });
+
+          // console.log(receiverInfo);
+
           io.to(lastMsg.sender_id.toString()).emit("seen", {
             cid: lastMsg.chat_id,
             seenBy: uid,
             lastSeenMsgId: lastMsg.id,
+            // receiverInfo: receiverInfo,
           });
         } catch (error) {
           console.log("Error in fe_seen socket", error.message);
@@ -136,7 +152,8 @@ const initialize = async (server) => {
 
           if (userInfo) {
             // Socket has already left the room by the time "disconnect" is fired.
-            const socketCount = io.sockets.adapter.rooms.get(userId.toString())?.size || 0;
+            const socketCount =
+              io.sockets.adapter.rooms.get(userId.toString())?.size || 0;
 
             if (socketCount === 0) {
               await updateUser(
@@ -169,6 +186,7 @@ const initialize = async (server) => {
       io.to(receiverId.toString()).emit("new_message", {
         msg: parsedMessage,
         reply_to: parsedMessage.reply_to,
+        replyMessage: parsedMessage.replyMessage,
       });
 
       console.log(
@@ -180,12 +198,64 @@ const initialize = async (server) => {
   });
 };
 
+const getBlockedUsersList = async (userId) => {
+  try {
+    const chats = await db.Chat.findAll({
+      where: {
+        [Op.or]: [{ user_one: userId }, { user_two: userId }],
+      },
+      include: [
+        {
+          model: db.ChatSetting,
+          where: { is_block: true },
+          required: true,
+        },
+      ],
+    });
+
+    const blockedUserIds = new Set();
+    chats.forEach((chat) => {
+      const otherUserId =
+        chat.user_one === userId ? chat.user_two : chat.user_one;
+      blockedUserIds.add(otherUserId.toString());
+    });
+
+    return blockedUserIds;
+  } catch (error) {
+    console.error("Error fetching blocked users", error.message);
+    return new Set();
+  }
+};
+
 const connect = async (userInfo) => {
-  io.emit("online_status", JSON.stringify({ uid: userInfo.id, on: 1 }));
+  const blockedUserIds = await getBlockedUsersList(userInfo.id);
+
+  if (io && io.sockets) {
+    io.sockets.adapter.rooms.forEach((_, room) => {
+      // room is a stringified userId. Don't emit to blocked users.
+      if (!blockedUserIds.has(room)) {
+        io.to(room).emit(
+          "online_status",
+          JSON.stringify({ uid: userInfo.id, on: 1 }),
+        );
+      }
+    });
+  }
 };
 
 const disconnect = async (userId) => {
-  io.emit("online_status", JSON.stringify({ uid: userId, on: 0 }));
+  const blockedUserIds = await getBlockedUsersList(userId);
+
+  if (io && io.sockets) {
+    io.sockets.adapter.rooms.forEach((_, room) => {
+      if (!blockedUserIds.has(room)) {
+        io.to(room).emit(
+          "online_status",
+          JSON.stringify({ uid: userId, on: 0 }),
+        );
+      }
+    });
+  }
 };
 
 const getIo = () => io;

@@ -1,14 +1,19 @@
+const { logger } = require("../../helper/logger");
 const MESSAGES = require("../../helper/messages");
 const { findOneSubscription } = require("../../services/subscriptionService");
-const { generateShortExplanation } = require("../../utils/gemini");
+const {
+  generateShortExplanation: generateGeminiExplanation,
+} = require("../../utils/gemini");
+const {
+  generateShortExplanation: generateOpenAiExplanation,
+} = require("../../utils/openai");
 
-// generate short explanation
-// GET /api/v3/ai/generate-short-explanation
-// private access
 const getShortExplanation = async (req, res, next) => {
   try {
     const userId = req.id;
     const { text } = req.body;
+
+    logger.info(`${req.method} ${req.url}`);
 
     const subscription = await findOneSubscription({
       where: { user_id: userId },
@@ -26,7 +31,25 @@ const getShortExplanation = async (req, res, next) => {
         .json({ message: MESSAGES.ERROR.TEXT_REQUIRED, success: false });
     }
 
-    const result = await generateShortExplanation(text);
+    let result = "";
+
+    try {
+      // Primary: Gemini
+      result = await generateGeminiExplanation(text);
+    } catch (geminiError) {
+      console.error(
+        "Gemini failed for short explanation, falling back to OpenAI:",
+        geminiError.message,
+      );
+    }
+
+    // Fallback: OpenAI if Gemini fails or returns empty
+    if (!result || result.trim() === "") {
+      console.log(
+        "No results from Gemini for short explanation. Attempting OpenAI fallback...",
+      );
+      result = await generateOpenAiExplanation(text);
+    }
 
     return res.status(200).json({
       message: MESSAGES.AI.GENERATE_SHORT_EXPLANATION_SUCCESS,
@@ -38,4 +61,6 @@ const getShortExplanation = async (req, res, next) => {
   }
 };
 
-module.exports = { getShortExplanation };
+module.exports = {
+  getShortExplanation,
+};

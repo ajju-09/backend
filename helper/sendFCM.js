@@ -20,7 +20,10 @@ const sendFCMNotification = async (fcmToken, title, body, data = {}) => {
     console.log("Successfully sent push notification:", response);
     return true;
   } catch (error) {
-    console.error("Error sending push notification:", error);
+    console.error("Error sending push notification:", error.message);
+    if (error.code) {
+      console.error("FCM Error Code:", error.code);
+    }
     return false;
   }
 };

@@ -41,6 +41,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
       },
+      is_edited: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
       createdAt: {
         type: DataTypes.DATE,
         allowNull: false,
@@ -69,6 +73,7 @@ module.exports = (sequelize, DataTypes) => {
 
     Message.belongsTo(models.Message, {
       foreignKey: "reply_to",
+      as: "replyMessage",
     });
 
     Message.hasMany(models.MessageSetting, {

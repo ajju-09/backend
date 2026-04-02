@@ -38,8 +38,7 @@ const { publisher } = require("../config/redis");
 const sendFCMNotification = require("../helper/sendFCM");
 const MESSAGES = require("../helper/messages");
 const { Reaction } = require("../services/reactionServices");
-const { notificationQueue } = require("../redis/queues");
-const { generateReplySuggestions } = require("../utils/gemini");
+const { notificationQueue, aiQueue } = require("../redis/queues");
 
 // send message
 // POST /api/v1/message/send
@@ -71,9 +70,9 @@ const sendMessage = async (req, res, next) => {
         .json({ message: MESSAGES.ERROR.USER_UNAUTHORIZED, success: false });
     }
 
-    // check if blocked
+    // check if chat is blocked by either user
     const chatSetting = await findOneChatSetting({
-      where: { user_id: { [Op.ne]: senderId }, chat_id: chatId },
+      where: { chat_id: chatId, is_block: true },
     });
 
     if (chatSetting?.is_block) {
@@ -138,10 +137,14 @@ const sendMessage = async (req, res, next) => {
     }
 
     // Validate reply
+    let parentMsgData = null;
     if (replyTo) {
       const parentMsg = await findOneMessage({
         where: { id: replyTo, chat_id: chatId },
+        include: [{ model: Users, as: "sender", attributes: ["id", "name"] }],
+        attributes: ["id", "text", "delete_for_all", "image_url"],
       });
+      parentMsgData = parentMsg;
       if (!parentMsg) {
         return res.status(400).json({
           message: MESSAGES.ERROR.INVALID_REPLY_MESSAGE,
@@ -185,7 +188,9 @@ const sendMessage = async (req, res, next) => {
       }),
       updateChat(
         {
-          last_message: encryptedText,
+          last_message: encryptMessage(
+            text ? text : images.length > 0 ? "📷 Photo" : "Sent a file",
+          ),
           last_message_time: new Date(),
           updatedAt: new Date(),
         },
@@ -208,7 +213,14 @@ const sendMessage = async (req, res, next) => {
     });
 
     if (chatData) {
-      chatData.last_message = decryptMessage(chatData.last_message);
+      // Overwrite fetched stale data with the new message we just sent
+      chatData.last_message = text
+        ? text
+        : images.length > 0
+          ? "📷 Photo"
+          : "Sent a file";
+      chatData.last_message_time = new Date();
+
       io.to(receiverId.toString()).emit("chat_update", {
         chat: chatData,
         unread_count: Number(unreadCount),
@@ -220,6 +232,33 @@ const sendMessage = async (req, res, next) => {
       text: decryptMessage(msg.text),
       image_url: msg.image_url ? JSON.parse(msg.image_url) : [],
     };
+
+    if (parentMsgData) {
+      responseMsg.replyMessage = parentMsgData.toJSON();
+
+      if (
+        chatSetting?.is_block &&
+        responseMsg.replyMessage.sender &&
+        responseMsg.replyMessage.sender.id !== senderId
+      ) {
+        responseMsg.replyMessage.sender.name = "Instagrammer";
+      }
+
+      if (
+        responseMsg.replyMessage.text &&
+        !responseMsg.replyMessage.delete_for_all
+      ) {
+        try {
+          responseMsg.replyMessage.text = decryptMessage(
+            responseMsg.replyMessage.text,
+          );
+        } catch (error) {
+          responseMsg.replyMessage.text = "Error decrypting message";
+        }
+      } else if (responseMsg.replyMessage.delete_for_all) {
+        responseMsg.replyMessage.text = "This message was deleted";
+      }
+    }
 
     await publisher.publish("MESSAGES", JSON.stringify(responseMsg));
     io.to(receiverId.toString()).emit("new_noti", {
@@ -244,22 +283,23 @@ const sendMessage = async (req, res, next) => {
         title: msg.text,
         message: `You have a new message from ${user.name}`,
         seen: false,
+        msg_id: msg.id,
       });
 
-      // Generate and emit reply suggestions asynchronously in real-time
-      generateReplySuggestions(text)
-        .then((suggestions) => {
-          if (suggestions && suggestions.length > 0) {
-            io.to(receiverId.toString()).emit("reply_suggestions", {
-              chatId,
-              messageId: msg.id,
-              suggestions,
-            });
-          }
-        })
-        .catch((error) => {
-          logger.error(`Gemini suggestion error: ${error.message}`);
+      const isValidLength = text.length >= 0 && text.length < 80;
+      const tenMinutes = 10 * 60 * 1000;
+      const isFirstOrInactive =
+        !chat.last_message_time ||
+        new Date() - new Date(chat.last_message_time) > tenMinutes;
+
+      if (isValidLength && isFirstOrInactive) {
+        await aiQueue.add("reply-suggestions", {
+          chatId,
+          messageId: msg.id,
+          receiverId,
+          text,
         });
+      }
     }
 
     return res.status(200).json({
@@ -358,6 +398,18 @@ const getMessage = async (req, res, next) => {
             },
           ],
         },
+        {
+          model: db.Message,
+          as: "replyMessage",
+          attributes: ["id", "text", "delete_for_all", "image_url"],
+          include: [
+            {
+              model: Users,
+              as: "sender",
+              attributes: ["id", "name"],
+            },
+          ],
+        },
       ],
 
       order: [["createdAt", "DESC"]],
@@ -365,7 +417,34 @@ const getMessage = async (req, res, next) => {
       offset: PageOffset,
     });
 
+    const otherUserId =
+      chat.user_one === userId ? chat.user_two : chat.user_one;
+
+    // Check if the other user has blocked the current user to mask their profile
+    const otherUserChatSetting = await findOneChatSetting({
+      where: { chat_id: chatId, user_id: otherUserId, is_block: true },
+    });
+    const isBlockedByThem = !!otherUserChatSetting;
+
     rows.forEach((item) => {
+      // Mask sender if blocked by them
+      if (isBlockedByThem && item.sender && item.sender.id === otherUserId) {
+        item.sender.name = "Instagrammer";
+        item.sender.photo =
+          "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
+      }
+
+      // Mask reactors if blocked by them
+      if (isBlockedByThem && item.reactions && item.reactions.length > 0) {
+        item.reactions.forEach((reaction) => {
+          if (reaction.reactor && reaction.reactor.id === otherUserId) {
+            reaction.reactor.name = "Instagrammer";
+            reaction.reactor.photo =
+              "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
+          }
+        });
+      }
+
       if (item.text && !item.delete_for_all) {
         try {
           item.text = decryptMessage(item.text);
@@ -374,6 +453,26 @@ const getMessage = async (req, res, next) => {
         }
       } else if (item.delete_for_all) {
         item.text = "This message was deleted";
+      }
+
+      if (item.replyMessage) {
+        // Mask replied message sender if blocked by them
+        if (
+          isBlockedByThem &&
+          item.replyMessage.sender &&
+          item.replyMessage.sender.id === otherUserId
+        ) {
+          item.replyMessage.sender.name = "Instagrammer";
+        }
+        if (item.replyMessage.text && !item.replyMessage.delete_for_all) {
+          try {
+            item.replyMessage.text = decryptMessage(item.replyMessage.text);
+          } catch (error) {
+            item.replyMessage.text = "Error decrypting message";
+          }
+        } else if (item.replyMessage.delete_for_all) {
+          item.replyMessage.text = "This message was deleted";
+        }
       }
     });
 
@@ -420,6 +519,17 @@ const pinMessage = async (req, res, next) => {
       return res
         .status(404)
         .json({ message: MESSAGES.ERROR.CHAT_NOT_FOUND, success: false });
+    }
+
+    // check if chat is blocked by either user
+    const chatSetting = await findOneChatSetting({
+      where: { chat_id: chatId, is_block: true },
+    });
+
+    if (chatSetting?.is_block) {
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.USER_BLOCKED, success: false });
     }
 
     const msg = await findMessageByKey(msgId);
@@ -495,6 +605,126 @@ const pinMessage = async (req, res, next) => {
       message: MESSAGES.MESSAGE.MESSAGE_PIN_SUCCESS,
       success: true,
       data: msg,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// get pin messages
+// GET /api/v1/message/get-pin-messages/:chatId
+// private access
+const getPinMessages = async (req, res, next) => {
+  try {
+    const userId = req.id;
+    const { chatId } = req.params;
+    const { limit = 10 } = req.query;
+
+    logger.info(`${req.method} ${req.url}`);
+
+    if (!chatId) {
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.CHAT_ID_REQUIRED, success: false });
+    }
+
+    const chat = await findChatByKey(chatId);
+
+    if (!chat) {
+      return res
+        .status(404)
+        .json({ message: MESSAGES.ERROR.CHAT_NOT_FOUND, success: false });
+    }
+
+    // check if user is part of this chat
+    if (chat.user_one !== userId && chat.user_two !== userId) {
+      return res
+        .status(403)
+        .json({ message: MESSAGES.ERROR.USER_UNAUTHORIZED, success: false });
+    }
+
+    // check if chat is blocked by either user
+    const chatSetting = await findOneChatSetting({
+      where: { chat_id: chatId, is_block: true },
+    });
+
+    if (chatSetting?.is_block) {
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.USER_BLOCKED, success: false });
+    }
+
+    const pageSize = parseInt(limit);
+
+    const pinMessages = await findAllMessage({
+      where: {
+        chat_id: chatId,
+        is_pin: true,
+        delete_for_all: false,
+        [Op.and]: [
+          db.sequelize.literal(`
+            NOT EXISTS (
+              SELECT 1 FROM message_settings ms
+              WHERE ms.msg_id = Message.id
+              AND ms.user_id = ${userId}
+              AND ms.delete_for_me = true
+            )
+          `),
+        ],
+      },
+      order: [["createdAt", "DESC"]],
+    });
+
+    const data = await Promise.all(
+      pinMessages.map(async (msg) => {
+        const newerCount = await countMessages({
+          where: {
+            chat_id: chatId,
+            createdAt: { [Op.gt]: msg.createdAt },
+            [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
+            [Op.and]: [
+              db.sequelize.literal(`
+                NOT EXISTS (
+                  SELECT 1 FROM message_settings ms
+                  WHERE ms.msg_id = Message.id
+                  AND ms.user_id = ${userId}
+                  AND ms.delete_for_me = true
+                )
+              `),
+            ],
+          },
+        });
+
+        const page = Math.floor(newerCount / pageSize) + 1;
+
+        let decryptedText = null;
+        if (msg.text) {
+          try {
+            decryptedText = decryptMessage(msg.text);
+          } catch {
+            decryptedText = "Error decrypting message";
+          }
+        }
+
+        return {
+          id: msg.id,
+          chat_id: msg.chat_id,
+          sender_id: msg.sender_id,
+          receiver_id: msg.receiver_id,
+          text: decryptedText,
+          image_url: msg.image_url ? JSON.parse(msg.image_url) : [],
+          is_pin: msg.is_pin,
+          is_edited: msg.is_edited,
+          createdAt: msg.createdAt,
+          page,
+        };
+      }),
+    );
+
+    return res.status(200).json({
+      message: MESSAGES.MESSAGE.GET_PIN_MESSAGES_SUCCESS,
+      success: true,
+      data,
     });
   } catch (error) {
     next(error);
@@ -593,7 +823,7 @@ const searchMessageInChat = async (req, res, next) => {
         ],
       },
       order: [["createdAt", "DESC"]],
-      attributes: ["id", "text", "delete_for_all"],
+      attributes: ["id", "text", "delete_for_all", "is_edited"],
     });
 
     const results = [];
@@ -604,12 +834,13 @@ const searchMessageInChat = async (req, res, next) => {
 
       const decrypted = decryptMessage(message.text);
 
-      if (decrypted.toLowerCase().includes(text.toLowerCase())) {
+      if (decrypted.includes(text)) {
         const pageNumber = Math.floor(idx / pageSize) + 1;
 
         results.push({
           msgId: message.id,
           text: decrypted,
+          is_edited: message.is_edited,
           page: pageNumber,
         });
       }
@@ -650,7 +881,7 @@ const getAllStarMessages = async (req, res, next) => {
           model: MessageSetting,
           as: "setting",
           where: { user_id: userId, is_star: true, delete_for_me: false },
-          attributes: ["chat_id"],
+          attributes: ["chat_id", "updatedAt"],
         },
         {
           model: Users,
@@ -659,7 +890,7 @@ const getAllStarMessages = async (req, res, next) => {
         },
       ],
       attributes: ["id", "text"],
-      order: [["id", "DESC"]],
+      order: [[{ model: MessageSetting, as: "setting" }, "updatedAt", "DESC"]],
       limit: Number(pageSize),
       offset: PageOffset,
     });
@@ -725,7 +956,7 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
             is_star: true,
             delete_for_me: false,
           },
-          attributes: ["id", "is_star"],
+          attributes: ["id", "is_star", "updatedAt"],
         },
         {
           model: Users,
@@ -736,7 +967,7 @@ const getAllStarMessageWithInChat = async (req, res, next) => {
       attributes: ["id", "text"],
       limit: pageSize,
       offset: PageOffset,
-      order: [["id", "DESC"]],
+      order: [[{ model: MessageSetting, as: "setting" }, "updatedAt", "DESC"]],
     });
 
     starMsg.forEach((msg) => {
@@ -781,6 +1012,17 @@ const editMessage = async (req, res, next) => {
     const chat = await findChatByKey(chatId);
     const msg = await findMessageByKey(msgId);
 
+    // check if chat is blocked by either user
+    const chatSetting = await findOneChatSetting({
+      where: { chat_id: chatId, is_block: true },
+    });
+
+    if (chatSetting?.is_block) {
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.USER_BLOCKED, success: false });
+    }
+
     if (!chat) {
       return res
         .status(404)
@@ -799,8 +1041,22 @@ const editMessage = async (req, res, next) => {
         .json({ message: MESSAGES.ERROR.NOT_AUTHORIZED, success: false });
     }
 
+    // const subscription = await findOneSubscription({
+    //   where: {
+    //     user_id: userId,
+    //     status: "Active",
+    //     end_date: { [Op.gt]: new Date() },
+    //   },
+    // });
+
+    // if (!subscription) {
+    //   return res
+    //     .status(404)
+    //     .json({ message: MESSAGES.ERROR.YOUR_ARE_NOT_SUB, success: false });
+    // }
+
     const updatedMsg = await updateMessage(
-      { text: encryptMessage(text) },
+      { text: encryptMessage(text), is_edited: true },
       { where: { id: msgId, sender_id: userId, chat_id: chatId } },
     );
 
@@ -815,6 +1071,13 @@ const editMessage = async (req, res, next) => {
       io.to(msg.receiver_id.toString()).emit("edit_msg", {
         id: msg.id,
         text: text,
+        is_edited: true,
+      });
+
+      io.to(msg.sender_id.toString()).emit("edit_msg", {
+        id: msg.id,
+        text: text,
+        is_edited: true,
       });
 
       return res.status(200).json({
@@ -823,6 +1086,7 @@ const editMessage = async (req, res, next) => {
         data: {
           id: updatedMessage.id,
           text: decryptMessage(updatedMessage.text),
+          is_edited: updatedMessage.is_edited,
         },
       });
     }
@@ -844,4 +1108,5 @@ module.exports = {
   getAllStarMessages,
   getAllStarMessageWithInChat,
   editMessage,
+  getPinMessages,
 };

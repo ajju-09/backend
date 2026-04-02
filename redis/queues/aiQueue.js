@@ -1,17 +1,17 @@
 const { Queue } = require("bullmq");
 const { bullMqConnection } = require("../../config/redis");
 
-const emailQueue = new Queue("emails", {
+const aiQueue = new Queue("ai-suggestions", {
   connection: bullMqConnection,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
       type: "exponential",
-      delay: 3000,
+      delay: 2000,
     },
     removeOnComplete: true,
     removeOnFail: true,
   },
 });
 
-module.exports = { emailQueue };
+module.exports = { aiQueue };

@@ -11,6 +11,7 @@ const {
   updateChatSetting,
   BulkCreateChatSetting,
   ChatSetting,
+  findOneChatSetting,
 } = require("../services/chatSettingServices");
 const { decryptMessage } = require("../helper/cipherMessage");
 const { getCacheData } = require("../redis/redis.client");
@@ -180,6 +181,23 @@ const getMyChats = async (req, res, next) => {
 
         const unreadCount =
           (await getCacheData(`unread:${userId}:${chat.id}`)) || 0;
+
+        // Mask data if blocked
+        const otherUserId =
+          chat.user_one === userId ? chat.user_two : chat.user_one;
+        const otherUserSetting = await findOneChatSetting({
+          where: { chat_id: chat.id, user_id: otherUserId },
+        });
+
+        const isBlockedByThem = otherUserSetting?.is_block;
+
+        if (isBlockedByThem) {
+          const otherUserKey = chat.user_one === userId ? "UserTwo" : "UserOne";
+          chat[otherUserKey].name = "Instagrammer";
+          chat[otherUserKey].photo =
+            "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
+          chat[otherUserKey].is_online = false;
+        }
 
         return {
           ...chat,

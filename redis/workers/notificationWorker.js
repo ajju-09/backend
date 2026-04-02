@@ -6,11 +6,8 @@ const notificationWorker = new Worker(
   "notifications",
   async (job) => {
     const data = job.data;
-    console.log(`[NotificationWorker] Processing job ${job.id}`);
 
     await createNotification(data);
-
-    console.log(`[NotificationWorker] Job ${job.id} completed`);
   },
   {
     connection: bullMqConnection,
@@ -19,15 +16,15 @@ const notificationWorker = new Worker(
 );
 
 notificationWorker.on("error", (error) => {
-  console.log("Notification worker error:", error);
+  console.log("Notification worker error:", error.message);
 });
 
 notificationWorker.on("failed", (job, error) => {
-  console.log("Notification worker failed:", job.id, error);
+  console.log("Notification worker failed:", error.message);
 });
 
-notificationWorker.on("completed", (job) => {
-  console.log("Notification worker completed:", job.id);
+notificationWorker.on("completed", () => {
+  console.log("Notification worker completed:");
 });
 
 module.exports = { notificationWorker };

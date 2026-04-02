@@ -110,12 +110,15 @@ const register = async (req, res, next) => {
           auto_renew: true,
         });
 
-        // Send welcome email via queue
-        await emailQueue.add("welcome-email", {
-          to: email,
-          subject: "Welcome to ChatMe! 🎉",
-          html: welcomeTemplate(name, "https://chatme.com"),
-        });
+        // Remove the pending hard-delete job from the queue to prevent deletion
+        const jobId = `user-cleanup-${targetUser.id}`;
+        const existingJob = await userCleanupQueue.getJob(jobId);
+        if (existingJob) {
+          await existingJob.remove();
+          console.log(
+            `Removed pending deletion job for revived user ID: ${targetUser.id}`,
+          );
+        }
 
         return res.status(200).json({
           message: MESSAGES.AUTH.REGISTER_SUCCESS,
@@ -547,7 +550,10 @@ const deleteUser = async (req, res, next) => {
     await userCleanupQueue.add(
       "hard-delete-user",
       { userId: id },
-      { delay: thirtyDaysInMs },
+      {
+        delay: thirtyDaysInMs,
+        jobId: `user-cleanup-${id}`,
+      },
     );
 
     return res.status(200).json({

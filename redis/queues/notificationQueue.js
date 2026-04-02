@@ -9,8 +9,8 @@ const notificationQueue = new Queue("notifications", {
       type: "exponential",
       delay: 2000,
     },
-    removeOnComplete: 100,
-    removeOnFail: 500,
+    removeOnComplete: true,
+    removeOnFail: true,
   },
 });
 

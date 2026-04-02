@@ -17,7 +17,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       title: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true,
       },
       message: {
@@ -26,6 +26,10 @@ module.exports = (sequelize, DataTypes) => {
       },
       seen: {
         type: DataTypes.BOOLEAN,
+        allowNull: true,
+      },
+      msg_id: {
+        type: DataTypes.INTEGER,
         allowNull: true,
       },
     },
@@ -51,6 +55,12 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "chat_id",
       onUpdate: "CASCADE",
       onDelete: "CASCADE",
+    });
+    Notification.belongsTo(models.Message, {
+      foreignKey: "msg_id",
+      as: "relatedMessage",
+      onUpdate: "CASCADE",
+      onDelete: "SET NULL",
     });
   };
 
