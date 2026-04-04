@@ -88,6 +88,7 @@ const generateShortExplanation = async (text) => {
                     Output:
                     - Return only the simplified text in the same language`;
 
+    console.log("Generating short explanation ......");
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
 

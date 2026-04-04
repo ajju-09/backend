@@ -10,6 +10,7 @@ const {
   getAllStarMessageWithInChat,
   editMessage,
   getPinMessages,
+  forwardMessage,
 } = require("../controllers/message.controller");
 const multiUpload = require("../middlewares/multiUpload.middleware");
 const premiumFeature = require("../middlewares/premium.middleware");
@@ -18,6 +19,9 @@ const router = express.Router();
 
 // send message
 router.post("/send", auth, multiUpload, premiumFeature, sendMessage);
+
+// forward message (no file upload — copies existing URLs)
+router.post("/forward", auth, forwardMessage);
 
 // get messages of chat
 router.get("/:chatId", auth, getMessage);

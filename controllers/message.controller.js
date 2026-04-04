@@ -46,7 +46,7 @@ const { notificationQueue, aiQueue } = require("../redis/queues");
 const sendMessage = async (req, res, next) => {
   try {
     const senderId = req.id;
-    const { chatId, text, replyTo } = req.body;
+    const { chatId, text, replyTo, gif_url } = req.body;
     const io = getIo();
 
     logger.info(`${req.method} ${req.url}`);
@@ -118,13 +118,29 @@ const sendMessage = async (req, res, next) => {
         .json({ message: MESSAGES.ERROR.DAILY_MESSAGE_LIMIT, success: false });
     }
 
-    // Handle attachments
-    let images = [];
+    // Validate gif_url if provided — must be a valid HTTP/HTTPS URL
+    if (gif_url) {
+      try {
+        const parsed = new URL(gif_url);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+          return res.status(400).json({
+            message: MESSAGES.ERROR.INVALID_GIF_URL,
+            success: false,
+          });
+        }
+      } catch {
+        return res
+          .status(400)
+          .json({ message: MESSAGES.ERROR.INVALID_GIF_URL, success: false });
+      }
+    }
+
+    // Handle file attachments — stored as [{ url, type, name }]
+    let attachments = [];
     if (req.files && req.files.length > 0) {
-      const uploads = await Promise.all(
+      attachments = await Promise.all(
         req.files.map(async (file) => await uploadToCloudinary(file)),
       );
-      images = uploads.map((img) => img.secure_url);
 
       await notificationQueue.add("sent-file-notification", {
         sender_id: senderId,
@@ -136,13 +152,25 @@ const sendMessage = async (req, res, next) => {
       });
     }
 
+    // Derive last-message preview from the first attachment type
+    const getAttachmentPreview = (attachments) => {
+      if (!attachments.length) return "Sent a file";
+      const t = attachments[0].type;
+      if (t === "image") return "📷 Photo";
+      if (t === "video") return "🎥 Video";
+      if (t === "audio") return "🎧 Audio";
+      if (t === "pdf") return "📄 PDF";
+      if (t === "document") return "📎 Document";
+      return "📎 File";
+    };
+
     // Validate reply
     let parentMsgData = null;
     if (replyTo) {
       const parentMsg = await findOneMessage({
         where: { id: replyTo, chat_id: chatId },
         include: [{ model: Users, as: "sender", attributes: ["id", "name"] }],
-        attributes: ["id", "text", "delete_for_all", "image_url"],
+        attributes: ["id", "text", "delete_for_all", "image_url", "gif_url"],
       });
       parentMsgData = parentMsg;
       if (!parentMsg) {
@@ -161,7 +189,8 @@ const sendMessage = async (req, res, next) => {
       receiver_id: receiverId,
       chat_id: chatId,
       text: encryptedText,
-      image_url: images.length > 0 ? JSON.stringify(images) : null,
+      image_url: attachments.length > 0 ? JSON.stringify(attachments) : null,
+      gif_url: gif_url || null,
       reply_to: Number(replyTo) || null,
     });
 
@@ -189,7 +218,11 @@ const sendMessage = async (req, res, next) => {
       updateChat(
         {
           last_message: encryptMessage(
-            text ? text : images.length > 0 ? "📷 Photo" : "Sent a file",
+            text
+              ? text
+              : gif_url
+                ? "🎬 GIF"
+                : getAttachmentPreview(attachments),
           ),
           last_message_time: new Date(),
           updatedAt: new Date(),
@@ -216,21 +249,30 @@ const sendMessage = async (req, res, next) => {
       // Overwrite fetched stale data with the new message we just sent
       chatData.last_message = text
         ? text
-        : images.length > 0
-          ? "📷 Photo"
-          : "Sent a file";
+        : gif_url
+          ? "🎬 GIF"
+          : getAttachmentPreview(attachments);
       chatData.last_message_time = new Date();
 
+      // Update receiver's chat list (with their unread count)
       io.to(receiverId.toString()).emit("chat_update", {
         chat: chatData,
         unread_count: Number(unreadCount),
+      });
+
+      // Update sender's chat list in real time (unread_count is 0 for sender)
+      io.to(senderId.toString()).emit("chat_update", {
+        chat: chatData,
+        unread_count: 0,
       });
     }
 
     const responseMsg = {
       ...msg.toJSON(),
       text: decryptMessage(msg.text),
+      // image_url is now [{url, type, name}] — parse if present
       image_url: msg.image_url ? JSON.parse(msg.image_url) : [],
+      gif_url: msg.gif_url || null,
     };
 
     if (parentMsgData) {
@@ -261,44 +303,47 @@ const sendMessage = async (req, res, next) => {
     }
 
     await publisher.publish("MESSAGES", JSON.stringify(responseMsg));
-    io.to(receiverId.toString()).emit("new_noti", {
-      message: `${user.name} sent you a message`,
-      chatId,
-    });
 
-    if (receiver?.fcm_token) {
-      await sendFCMNotification(
-        receiver.fcm_token,
-        `New message from ${user.name}`,
-        text ? text.substring(0, 50) : "Sent a file",
-        { chatId: chatId.toString(), path: "chat" },
-      );
-    }
-
-    if (text) {
-      await notificationQueue.add("new-message-notification", {
-        sender_id: senderId,
-        receiver_id: receiverId,
-        chat_id: chatId,
-        title: msg.text,
-        message: `You have a new message from ${user.name}`,
-        seen: false,
-        msg_id: msg.id,
+    if (!receiver?.is_online) {
+      io.to(receiverId.toString()).emit("new_noti", {
+        message: `${user.name} sent you a message`,
+        chatId,
       });
 
-      const isValidLength = text.length >= 0 && text.length < 80;
-      const tenMinutes = 10 * 60 * 1000;
-      const isFirstOrInactive =
-        !chat.last_message_time ||
-        new Date() - new Date(chat.last_message_time) > tenMinutes;
+      if (receiver?.fcm_token) {
+        await sendFCMNotification(
+          receiver.fcm_token,
+          `New message from ${user.name}`,
+          text ? text.substring(0, 50) : "Sent a file",
+          { chatId: chatId.toString(), path: "chat" },
+        );
+      }
 
-      if (isValidLength && isFirstOrInactive) {
-        await aiQueue.add("reply-suggestions", {
-          chatId,
-          messageId: msg.id,
-          receiverId,
-          text,
+      if (text) {
+        await notificationQueue.add("new-message-notification", {
+          sender_id: senderId,
+          receiver_id: receiverId,
+          chat_id: chatId,
+          title: msg.text,
+          message: `You have a new message from ${user.name}`,
+          seen: false,
+          msg_id: msg.id,
         });
+
+        const isValidLength = text.length >= 0 && text.length < 80;
+        const tenMinutes = 10 * 60 * 1000;
+        const isFirstOrInactive =
+          !chat.last_message_time ||
+          new Date() - new Date(chat.last_message_time) > tenMinutes;
+
+        if (isValidLength && isFirstOrInactive) {
+          await aiQueue.add("reply-suggestions", {
+            chatId,
+            messageId: msg.id,
+            receiverId,
+            text,
+          });
+        }
       }
     }
 
@@ -401,7 +446,7 @@ const getMessage = async (req, res, next) => {
         {
           model: db.Message,
           as: "replyMessage",
-          attributes: ["id", "text", "delete_for_all", "image_url"],
+          attributes: ["id", "text", "delete_for_all", "image_url", "gif_url"],
           include: [
             {
               model: Users,
@@ -756,6 +801,9 @@ const deleteForAll = async (req, res, next) => {
     }
 
     msg.delete_for_all = true;
+    msg.text = null;
+    msg.image_url = null;
+    msg.gif_url = null;
     await msg.save();
 
     const lastMsg = await findOneMessage({
@@ -1099,6 +1147,272 @@ const editMessage = async (req, res, next) => {
   }
 };
 
+// forward message
+// POST /api/v1/message/forward
+// private access
+const forwardMessage = async (req, res, next) => {
+  try {
+    const senderId = req.id;
+    const { msgId, chatIds } = req.body;
+    const io = getIo();
+
+    logger.info(`${req.method} ${req.url}`);
+
+    // Guard: msgId required
+    if (!msgId) {
+      return res
+        .status(400)
+        .json({ message: MESSAGES.ERROR.MESSAGE_ID_REQUIRED, success: false });
+    }
+
+    // Guard: chatIds must be a non-empty array
+    if (!chatIds || !Array.isArray(chatIds) || chatIds.length === 0) {
+      return res.status(400).json({
+        message: MESSAGES.ERROR.CHAT_IDS_MUST_BE_ARRAY,
+        success: false,
+      });
+    }
+
+    // Guard: max 5 chats per forward
+    if (chatIds.length > 5) {
+      return res.status(400).json({
+        message: MESSAGES.ERROR.FORWARD_LIMIT_EXCEEDED,
+        success: false,
+      });
+    }
+
+    // Fetch the source message
+    const sourceMsg = await findMessageByKey(msgId);
+
+    if (!sourceMsg) {
+      return res
+        .status(404)
+        .json({ message: MESSAGES.ERROR.MESSAGE_NOT_FOUND, success: false });
+    }
+
+    // Guard: cannot forward a deleted message
+    if (sourceMsg.delete_for_all) {
+      return res.status(400).json({
+        message: MESSAGES.ERROR.CANNOT_FORWARD_DELETED,
+        success: false,
+      });
+    }
+
+    // Guard: source must have actual content
+    const hasText = !!sourceMsg.text;
+    const hasImage = !!sourceMsg.image_url;
+    const hasGif = !!sourceMsg.gif_url;
+
+    if (!hasText && !hasImage && !hasGif) {
+      return res.status(400).json({
+        message: MESSAGES.ERROR.NO_CONTENT_TO_FORWARD,
+        success: false,
+      });
+    }
+
+    // Decrypt source text once — re-encrypt per new message below
+    let plainText = null;
+    if (hasText) {
+      try {
+        plainText = decryptMessage(sourceMsg.text);
+      } catch {
+        plainText = null;
+      }
+    }
+
+    const [senderUser, subscription] = await Promise.all([
+      findUserByKey(senderId),
+      findOneSubscription({
+        where: {
+          user_id: senderId,
+          status: "Active",
+          end_date: { [Op.gt]: new Date() },
+        },
+        include: [
+          { model: Plans, attributes: ["id", "type", "daily_message_limit"] },
+        ],
+      }),
+    ]);
+
+    // Determine daily limit for sender (same logic as sendMessage)
+    let dailyLimit = 10;
+    if (subscription?.Plan) {
+      dailyLimit = subscription.Plan.daily_message_limit;
+    } else {
+      const freePlan = await findOnePlan({ where: { type: "Free" } });
+      dailyLimit = freePlan?.daily_message_limit ?? 10;
+    }
+
+    const forwarded = [];
+    const failed = [];
+
+    // Process each target chat
+    for (const chatId of chatIds) {
+      try {
+        // 1. Chat must exist
+        const chat = await findChatByKey(chatId);
+        if (!chat) {
+          failed.push({ chatId, reason: "Chat not found" });
+          continue;
+        }
+
+        // 2. Sender must be a member of the target chat
+        if (chat.user_one !== senderId && chat.user_two !== senderId) {
+          failed.push({ chatId, reason: "You are not a member of this chat" });
+          continue;
+        }
+
+        // 3. Target chat must not be blocked
+        const chatSetting = await findOneChatSetting({
+          where: { chat_id: chatId, is_block: true },
+        });
+        if (chatSetting?.is_block) {
+          failed.push({ chatId, reason: "Chat is blocked" });
+          continue;
+        }
+
+        const receiverId =
+          chat.user_one === senderId ? chat.user_two : chat.user_one;
+
+        // 4. Daily message limit per target chat
+        const today = new Date().toISOString().split("T")[0];
+        const tempKey = `user:${senderId}:chat:${chatId}:${today}`;
+        const currCount = await increment(tempKey);
+        if (currCount === 1) await expireKey(tempKey, 86400);
+
+        if (dailyLimit !== null && currCount > dailyLimit) {
+          failed.push({ chatId, reason: "Daily message limit reached" });
+          continue;
+        }
+
+        // 5. Create the forwarded message
+        const newMsg = await createMessage({
+          sender_id: senderId,
+          receiver_id: receiverId,
+          chat_id: chatId,
+          text: plainText ? encryptMessage(plainText) : null,
+          image_url: sourceMsg.image_url || null,
+          gif_url: sourceMsg.gif_url || null,
+          reply_to: null,
+          is_forwarded: true,
+        });
+
+        if (!newMsg) {
+          failed.push({ chatId, reason: "Failed to create message" });
+          continue;
+        }
+
+        // 6. Build last message preview text
+        const lastMsgPreview = plainText
+          ? plainText
+          : hasGif
+            ? "🎬 GIF"
+            : "📷 Photo";
+
+        const unreadCount = await increment(`unread:${receiverId}:${chatId}`);
+
+        const [chatData] = await Promise.all([
+          findOneChat({
+            where: { id: chatId },
+            include: [
+              {
+                model: Users,
+                as: "UserOne",
+                attributes: ["id", "name", "photo", "is_online"],
+              },
+              {
+                model: Users,
+                as: "UserTwo",
+                attributes: ["id", "name", "photo", "is_online"],
+              },
+            ],
+          }),
+          updateChat(
+            {
+              last_message: encryptMessage(lastMsgPreview),
+              last_message_time: new Date(),
+              updatedAt: new Date(),
+            },
+            { where: { id: chatId } },
+          ),
+          incrementChatSetting(
+            { unread_count: 1 },
+            { where: { chat_id: chatId, user_id: receiverId } },
+          ),
+          bulkCreateMessageSetting([
+            { msg_id: newMsg.id, chat_id: chatId, user_id: newMsg.sender_id },
+            { msg_id: newMsg.id, chat_id: chatId, user_id: newMsg.receiver_id },
+          ]),
+        ]);
+
+        // 7. Socket: unread count to receiver
+        io.to(receiverId.toString()).emit("unread_count", {
+          chatId,
+          unread_count: Number(unreadCount),
+        });
+
+        // 8. Socket: chat_update to both sender and receiver
+        if (chatData) {
+          chatData.last_message = lastMsgPreview;
+          chatData.last_message_time = new Date();
+
+          io.to(receiverId.toString()).emit("chat_update", {
+            chat: chatData,
+            unread_count: Number(unreadCount),
+          });
+          io.to(senderId.toString()).emit("chat_update", {
+            chat: chatData,
+            unread_count: 0,
+          });
+        }
+
+        // 9. Publish to Redis → delivered as new_message via socket subscriber
+        const responseMsg = {
+          ...newMsg.toJSON(),
+          text: plainText,
+          image_url: newMsg.image_url ? JSON.parse(newMsg.image_url) : [],
+          gif_url: newMsg.gif_url || null,
+          is_forwarded: true,
+        };
+        await publisher.publish("MESSAGES", JSON.stringify(responseMsg));
+
+        // 10. Offline notifications (FCM + socket new_noti)
+        const receiver = await findUserByKey(receiverId);
+        if (!receiver?.is_online) {
+          io.to(receiverId.toString()).emit("new_noti", {
+            message: `${senderUser.name} forwarded you a message`,
+            chatId,
+          });
+
+          if (receiver?.fcm_token) {
+            await sendFCMNotification(
+              receiver.fcm_token,
+              `Forwarded message from ${senderUser.name}`,
+              plainText ? plainText.substring(0, 50) : lastMsgPreview,
+              { chatId: chatId.toString(), path: "chat" },
+            );
+          }
+        }
+
+        forwarded.push({ chatId, msgId: newMsg.id });
+      } catch (err) {
+        // Per-chat errors must not abort the entire request
+        console.error(`Forward failed for chatId ${chatId}:`, err.message);
+        failed.push({ chatId, reason: "Internal error" });
+      }
+    }
+
+    return res.status(200).json({
+      message: MESSAGES.MESSAGE.FORWARD_MESSAGE_SUCCESS,
+      success: true,
+      forwarded,
+      failed,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   sendMessage,
   getMessage,
@@ -1109,4 +1423,5 @@ module.exports = {
   getAllStarMessageWithInChat,
   editMessage,
   getPinMessages,
+  forwardMessage,
 };

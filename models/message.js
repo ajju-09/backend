@@ -25,6 +25,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         defaultValue: null,
       },
+      gif_url: {
+        type: DataTypes.STRING(2048),
+        allowNull: true,
+        defaultValue: null,
+      },
       reply_to: {
         type: DataTypes.INTEGER,
         allowNull: true,
@@ -42,6 +47,10 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: false,
       },
       is_edited: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
+      is_forwarded: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
       },

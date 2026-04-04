@@ -36,6 +36,7 @@ const MESSAGES = {
     NO_STAR_MESSAGE: "There is no star messages for you",
     MESSAGE_UPDATE_SUCCESS: "Message updated successfully",
     GET_PIN_MESSAGES_SUCCESS: "Pin message fetched successfully",
+    FORWARD_MESSAGE_SUCCESS: "Message forwarded successfully",
   },
   NOTIFICATION: {
     GET_NOTIFICATIONS_SUCCESS: "Get notifications successfully",
@@ -108,6 +109,12 @@ const MESSAGES = {
     SOMETHING_WENT_WRONG: "Somthing went wrong",
     USER_EXISTED: "User already exists",
     MESSAGE_ID_REQUIRED: "Message id required",
+    FORWARD_LIMIT_EXCEEDED: "You can forward to a maximum of 5 chats at once",
+    CANNOT_FORWARD_DELETED: "Cannot forward a deleted message",
+    NO_CONTENT_TO_FORWARD: "This message has no content to forward",
+    CHAT_IDS_REQUIRED: "At least one target chat is required",
+    CHAT_IDS_MUST_BE_ARRAY: "chatIds must be a non-empty array",
+    INVALID_GIF_URL: "Invalid GIF URL — must be a valid http or https link",
     TOO_MANY_REQUEST: "Too Many Requests. Try again later",
     TOO_MANY_ATTEMPT: "Too many attempts. Try again after 15 minutes.",
     FILE_SHARING_FOR_PREMIUM:
